@@ -137,7 +137,7 @@ export function IsoPlan({ plan, name, playKey, over = false, onT, scrub = null, 
     const ys = pts.map((p) => p[1])
     const w = Math.max(...xs) - Math.min(...xs)
     const h = Math.max(...ys) - Math.min(...ys)
-    const k = Math.min(1.4, Math.max(1, Math.min(base.w / (w * 1.25), base.h / (h * 1.35))))
+    const k = Math.min(1.25, Math.max(1, Math.min(base.w / (w * 1.3), base.h / (h * 1.4))))
     const cx = (Math.max(...xs) + Math.min(...xs)) / 2 - (base.x + base.w / 2)
     const cy = (Math.max(...ys) + Math.min(...ys)) / 2 - (base.y + base.h / 2)
     // Keep the camera inside the drawing so the frame never shows empty paper.
@@ -360,7 +360,7 @@ export function IsoPlan({ plan, name, playKey, over = false, onT, scrub = null, 
 
         {/* room labels */}
         {plan.zones
-          .filter((z) => z.kind !== 'hall' && z.to.w > 60)
+          .filter((z) => z.kind !== 'hall' && !z.id.startsWith('spare') && z.to.w > 60)
           .map((z) => {
             const seated = z.seats > 0
             const [lx, ly] = pt(z.to.x + z.to.w / 2, seated ? z.to.y + Math.min(24, z.to.h * 0.2) : z.to.y + z.to.h / 2, 0)

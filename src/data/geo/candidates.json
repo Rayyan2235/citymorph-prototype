@@ -52,7 +52,40 @@
    "under5": 476,
    "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
   },
-  "fetched": "2026-11-14"
+  "fetched": "2026-11-14",
+  "metrics": {
+   "stop": {
+    "name": null,
+    "kind": "bus",
+    "m": 343,
+    "at": [
+     -95.484781,
+     29.703882
+    ]
+   },
+   "rail": null,
+   "stopsIn10": 1,
+   "park": {
+    "name": null,
+    "kind": "park",
+    "areaM2": 375,
+    "m": 1115
+   },
+   "nearestExisting": {
+    "learning": {
+     "name": "Burnett Bayland Community Center",
+     "m": 1728
+    },
+    "childcare": {
+     "name": "KinderCare",
+     "m": 1595
+    },
+    "clinic": {
+     "name": "Planned Parenthood",
+     "m": 369
+    }
+   }
+  }
  },
  "hou-fulton": {
   "id": "hou-fulton",
@@ -121,7 +154,48 @@
    "under5": 406,
    "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
   },
-  "fetched": "2026-11-14"
+  "fetched": "2026-11-14",
+  "metrics": {
+   "stop": {
+    "name": "Fulton/North Central",
+    "kind": "station",
+    "m": 692,
+    "at": [
+     -95.360715,
+     29.785787
+    ]
+   },
+   "rail": {
+    "name": "Fulton/North Central",
+    "kind": "station",
+    "m": 692,
+    "at": [
+     -95.360715,
+     29.785787
+    ]
+   },
+   "stopsIn10": 2,
+   "park": {
+    "name": null,
+    "kind": "playground",
+    "areaM2": 165,
+    "m": 248
+   },
+   "nearestExisting": {
+    "learning": {
+     "name": "Moody Community Center",
+     "m": 633
+    },
+    "childcare": {
+     "name": "Greater Heights School",
+     "m": 2670
+    },
+    "clinic": {
+     "name": "Fresenius Kidney Care",
+     "m": 380
+    }
+   }
+  }
  },
  "hou-navigation": {
   "id": "hou-navigation",
@@ -177,7 +251,45 @@
    "under5": 121,
    "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
   },
-  "fetched": "2026-11-14"
+  "fetched": "2026-11-14",
+  "metrics": {
+   "stop": {
+    "name": "Coffee Plant/Second Ward",
+    "kind": "station",
+    "m": 1203,
+    "at": [
+     -95.340107,
+     29.747542
+    ]
+   },
+   "rail": {
+    "name": "Coffee Plant/Second Ward",
+    "kind": "station",
+    "m": 1203,
+    "at": [
+     -95.340107,
+     29.747542
+    ]
+   },
+   "stopsIn10": 0,
+   "park": {
+    "name": "Fox Park",
+    "kind": "park",
+    "areaM2": 853,
+    "m": 253
+   },
+   "nearestExisting": {
+    "learning": {
+     "name": "Flores Neighborhood Library",
+     "m": 854
+    },
+    "childcare": null,
+    "clinic": {
+     "name": "Allied Medical Centers",
+     "m": 39
+    }
+   }
+  }
  },
  "hou-sharpstown": {
   "id": "hou-sharpstown",
@@ -234,7 +346,32 @@
    "under5": 179,
    "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
   },
-  "fetched": "2026-11-14"
+  "fetched": "2026-11-14",
+  "metrics": {
+   "stop": null,
+   "rail": null,
+   "stopsIn10": 0,
+   "park": {
+    "name": null,
+    "kind": "playground",
+    "areaM2": 388,
+    "m": 1524
+   },
+   "nearestExisting": {
+    "learning": {
+     "name": "Walter Neighborhood Library",
+     "m": 829
+    },
+    "childcare": {
+     "name": "KinderCare",
+     "m": 2396
+    },
+    "clinic": {
+     "name": "Walker Family Practice",
+     "m": 1673
+    }
+   }
+  }
  },
  "hou-sunnyside": {
   "id": "hou-sunnyside",
@@ -311,7 +448,26 @@
    "under5": 435,
    "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
   },
-  "fetched": "2026-11-14"
+  "fetched": "2026-11-14",
+  "metrics": {
+   "stop": null,
+   "rail": null,
+   "stopsIn10": 0,
+   "park": {
+    "name": "Wilmington Greenspace",
+    "kind": "park",
+    "areaM2": 5977,
+    "m": 1071
+   },
+   "nearestExisting": {
+    "learning": {
+     "name": "Johnson Neighborhood Library",
+     "m": 1892
+    },
+    "childcare": null,
+    "clinic": null
+   }
+  }
  },
  "la-boyle": {
   "id": "la-boyle",
@@ -373,7 +529,48 @@
    "under5": 312,
    "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
   },
-  "fetched": "2026-11-14"
+  "fetched": "2026-11-14",
+  "metrics": {
+   "stop": {
+    "name": "Soto & 1st",
+    "kind": "bus",
+    "m": 50,
+    "at": [
+     -118.209515,
+     34.043963
+    ]
+   },
+   "rail": {
+    "name": "Soto",
+    "kind": "station",
+    "m": 126,
+    "at": [
+     -118.210232,
+     34.043613
+    ]
+   },
+   "stopsIn10": 29,
+   "park": {
+    "name": "Mathews Park",
+    "kind": "park",
+    "areaM2": 803,
+    "m": 390
+   },
+   "nearestExisting": {
+    "learning": {
+     "name": "Benjamin Franklin Branch Los Angeles Public Library",
+     "m": 370
+    },
+    "childcare": {
+     "name": "San Antonio de Padua Academy Preschool",
+     "m": 1807
+    },
+    "clinic": {
+     "name": "White Memorial Medical Center",
+     "m": 1368
+    }
+   }
+  }
  },
  "la-vermont": {
   "id": "la-vermont",
@@ -451,7 +648,48 @@
    "under5": 227,
    "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
   },
-  "fetched": "2026-11-14"
+  "fetched": "2026-11-14",
+  "metrics": {
+   "stop": {
+    "name": "Manchester & Vermont",
+    "kind": "bus",
+    "m": 71,
+    "at": [
+     -118.291299,
+     33.960135
+    ]
+   },
+   "rail": {
+    "name": "Manchester",
+    "kind": "station",
+    "m": 1026,
+    "at": [
+     -118.280835,
+     33.960085
+    ]
+   },
+   "stopsIn10": 15,
+   "park": {
+    "name": "Algin Sutton Recreation Center",
+    "kind": "park",
+    "areaM2": 66492,
+    "m": 866
+   },
+   "nearestExisting": {
+    "learning": {
+     "name": "Mark Twain Branch Los Angeles Public Library",
+     "m": 2073
+    },
+    "childcare": {
+     "name": "Bakewell Primary Center",
+     "m": 248
+    },
+    "clinic": {
+     "name": "Umma Community Clinic",
+     "m": 2119
+    }
+   }
+  }
  },
  "la-westlake": {
   "id": "la-westlake",
@@ -513,7 +751,45 @@
    "under5": 252,
    "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
   },
-  "fetched": "2026-11-14"
+  "fetched": "2026-11-14",
+  "metrics": {
+   "stop": {
+    "name": "7th & Alvarado",
+    "kind": "bus",
+    "m": 225,
+    "at": [
+     -118.27708,
+     34.056473
+    ]
+   },
+   "rail": {
+    "name": "Westlake/MacArthur Park",
+    "kind": "station",
+    "m": 497,
+    "at": [
+     -118.275479,
+     34.05674
+    ]
+   },
+   "stopsIn10": 55,
+   "park": {
+    "name": null,
+    "kind": "playground",
+    "areaM2": 2338,
+    "m": 515
+   },
+   "nearestExisting": {
+    "learning": {
+     "name": "Pico-Union Branch LA Public Library",
+     "m": 820
+    },
+    "childcare": null,
+    "clinic": {
+     "name": "Los Angeles Medical Center Cosmetic Surgery",
+     "m": 544
+    }
+   }
+  }
  },
  "la-pacoima": {
   "id": "la-pacoima",
@@ -575,6 +851,142 @@
    "under5": 237,
    "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
   },
-  "fetched": "2026-11-14"
+  "fetched": "2026-11-14",
+  "metrics": {
+   "stop": {
+    "name": "Van Nuys & Kewen",
+    "kind": "bus",
+    "m": 135,
+    "at": [
+     -118.42754,
+     34.26229
+    ]
+   },
+   "rail": {
+    "name": "Santiago Express - Pacoima",
+    "kind": "station",
+    "m": 792,
+    "at": [
+     -118.434116,
+     34.259569
+    ]
+   },
+   "stopsIn10": 16,
+   "park": {
+    "name": null,
+    "kind": "playground",
+    "areaM2": 848,
+    "m": 1159
+   },
+   "nearestExisting": {
+    "learning": {
+     "name": "Pacoima Branch Los Angeles Public Library",
+     "m": 206
+    },
+    "childcare": {
+     "name": null,
+     "m": 473
+    },
+    "clinic": {
+     "name": null,
+     "m": 199
+    }
+   }
+  }
+ },
+ "la-highland": {
+  "id": "la-highland",
+  "city": "la",
+  "area": "Highland Park",
+  "street": "N Figueroa St",
+  "at": [
+   -118.1908,
+   34.1102
+  ],
+  "building": {
+   "osmId": 552669503,
+   "tags": {
+    "building": "retail"
+   },
+   "ring": [
+    [
+     -118.190819,
+     34.110389
+    ],
+    [
+     -118.19081,
+     34.110423
+    ],
+    [
+     -118.190685,
+     34.110482
+    ],
+    [
+     -118.190564,
+     34.110319
+    ],
+    [
+     -118.19072,
+     34.110243
+    ],
+    [
+     -118.190819,
+     34.110389
+    ]
+   ],
+   "areaM2": 344,
+   "center": [
+    -118.190736,
+    34.110374
+   ],
+   "distFromSeedM": 20
+  },
+  "tract": {
+   "geoid": "06037183701",
+   "name": "Census Tract 1837.01",
+   "landM2": 550875,
+   "pop": 3351,
+   "under5": 87,
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14",
+  "metrics": {
+   "stop": {
+    "name": "Figueroa & Avenue 59",
+    "kind": "bus",
+    "m": 40,
+    "at": [
+     -118.191099,
+     34.110309
+    ]
+   },
+   "rail": {
+    "name": "Highland Park",
+    "kind": "station",
+    "m": 261,
+    "at": [
+     -118.192544,
+     34.11121
+    ]
+   },
+   "stopsIn10": 20,
+   "park": {
+    "name": null,
+    "kind": "park",
+    "areaM2": 178,
+    "m": 289
+   },
+   "nearestExisting": {
+    "learning": {
+     "name": "Arroyo Seco Regional Branch Los Angeles Public Library",
+     "m": 577
+    },
+    "childcare": null,
+    "clinic": {
+     "name": "Comprehensive Community Health Centers",
+     "m": 2330
+    }
+   }
+  }
  }
 }
