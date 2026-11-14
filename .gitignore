@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Per-person agent notes (vault path)
+CLAUDE.local.md
