@@ -102,9 +102,9 @@ function areaM2(ring) {
 const centroid = (ring) => [ring.reduce((s, c) => s + c[0], 0) / ring.length, ring.reduce((s, c) => s + c[1], 0) / ring.length]
 const r6 = (n) => Math.round(n * 1e6) / 1e6
 
-async function pickBuilding(site) {
+async function pickBuilding(site, radius = 260) {
   const [lon, lat] = site.at
-  const els = await overpass(`way(around:260,${lat},${lon})["building"~"^(retail|commercial|office|yes|civic|industrial|warehouse|church|public)$"];out body geom;`)
+  const els = await overpass(`way(around:${radius},${lat},${lon})["building"~"^(retail|commercial|office|yes|civic|industrial|warehouse|church|public)$"];out body geom;`)
   const prefer = { retail: 3, commercial: 3, office: 3, civic: 2, public: 2, yes: 1, industrial: 0, warehouse: 0, church: 0 }
   const cands = els
     .filter((e) => e.geometry?.length > 3)
@@ -116,7 +116,10 @@ async function pickBuilding(site) {
     })
     // 300 to 1,100 m² is roughly 3,200 to 11,800 sq ft: a corner-store-to-small-office range
     .filter((x) => x.a >= 300 && x.a <= 1100)
-  if (!cands.length) throw new Error(`no building near ${site.id}`)
+  if (!cands.length) {
+    if (radius < 700) return pickBuilding(site, 700)
+    throw new Error(`no building near ${site.id}`)
+  }
   // Avoid named or amenity-tagged buildings: vacancy and interiors are simulated,
   // and pinning a fake "for lease" status on a real named business would mislead.
   const named = (t) => Boolean(t.name || t.amenity || t.brand || t.office || t.shop)

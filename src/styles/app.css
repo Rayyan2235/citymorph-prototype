@@ -632,14 +632,34 @@ p {
   font-size: var(--t-20);
   letter-spacing: -0.02em;
 }
-.sl-row.is-fail .sl-title {
+/* a rejected row greys out only when the Inspector reaches it (--d) */
+.is-check .sl-row.is-fail .sl-title {
   text-decoration: line-through;
   text-decoration-thickness: 1.5px;
-  color: var(--ink-muted);
+  animation: cm-strike 0.35s var(--d, 0s) both;
 }
-.sl-row.is-fail .sl-thumb {
-  filter: grayscale(1);
-  opacity: 0.6;
+.is-check .sl-row.is-fail .sl-thumb {
+  animation: cm-gray 0.35s var(--d, 0s) both;
+}
+@keyframes cm-strike {
+  from {
+    text-decoration-color: transparent;
+    color: var(--ink);
+  }
+  to {
+    text-decoration-color: var(--ink-muted);
+    color: var(--ink-muted);
+  }
+}
+@keyframes cm-gray {
+  from {
+    filter: none;
+    opacity: 1;
+  }
+  to {
+    filter: grayscale(1);
+    opacity: 0.6;
+  }
 }
 .sl-row.is-pass:first-child .sl-rank {
   color: var(--ink);
@@ -927,7 +947,7 @@ p {
   stroke-width: 1.2;
 }
 .iso-door-dot {
-  fill: var(--accent);
+  fill: var(--ink);
   stroke: var(--paper-raised);
   stroke-width: 1.5;
 }
@@ -2091,7 +2111,7 @@ p {
   stroke-width: 0.8;
 }
 .iso-door.is-new .iso-door-dot {
-  fill: var(--accent);
+  fill: var(--ink);
 }
 .iso-door-t {
   font-family: var(--font-mono);
@@ -2513,4 +2533,38 @@ p {
 .st-canvas .iso {
   min-height: 0;
   overflow: hidden;
+}
+.st-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+  font-size: var(--t-12);
+  color: var(--ink-soft);
+}
+.st-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.lg-door {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+.lg-door.is-no {
+  background: var(--ink-muted);
+}
+.lg-door.is-new {
+  background: var(--accent);
+}
+.lg-route {
+  width: 18px;
+  border-top: 2px dotted var(--ink);
+}
+.lg-wall {
+  width: 14px;
+  height: 8px;
+  background: var(--accent-tint-2);
+  border: 1px solid var(--accent);
 }

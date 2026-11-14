@@ -4,7 +4,7 @@ import NumberFlow from '@number-flow/react'
 import { BookOpen, Moon, Sun, X } from 'lucide-react'
 import { CITIES, FACILITIES, type CityId, type FacilityId } from './data/config'
 import { ASSUMPTIONS, KIND_ORDER, SITE_EVIDENCE, SOURCE_LABEL, userEvidence, type Evidence, type SourceKind } from './data/evidence'
-import { CANDIDATES } from './data/candidates'
+import { CANDIDATES, byCity } from './data/candidates'
 import { evaluate, inspectionOrder, thousands, type Request, type Result } from './logic/evaluate'
 import { loadGeo, simulate, type Impact } from './logic/impact'
 import { EvidenceContext, SOURCE_ICON } from './components/Cite'
@@ -15,6 +15,7 @@ import { Studio } from './components/Studio'
 import { ImpactPanel } from './components/ImpactPanel'
 import { AgentLog, type AgentName, type LogLine } from './components/AgentLog'
 import { SearchBox, type Hit } from './components/SearchBox'
+import { Hook } from './components/Hook'
 import { BUDGET_MAX, BUDGET_MIN } from './components/Replan'
 import type { LngLat } from './logic/geo'
 
@@ -55,6 +56,7 @@ export default function App() {
   const [view, setView] = useState<'before' | 'after'>('before')
   const [reveal, setReveal] = useState(0)
   const [ran, setRan] = useState(false)
+  const [stops, setStops] = useState<{ at: LngLat; kind: string }[]>([])
   const timers = useRef<number[]>([])
   const lineId = useRef(0)
   const width = useWidth()
@@ -67,6 +69,27 @@ export default function App() {
     document.documentElement.dataset.motion = reduce ? 'off' : 'on'
   }, [reduce])
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
+
+  // Every OSM transit stop around this city's candidates, for the overview map.
+  useEffect(() => {
+    let live = true
+    Promise.all(byCity(req.city).map((c) => loadGeo(c.id).catch(() => null))).then((list) => {
+      if (!live) return
+      const seen = new Set<string>()
+      const out: { at: LngLat; kind: string }[] = []
+      for (const g of list)
+        for (const s of g?.stops ?? []) {
+          const key = `${s.lon.toFixed(4)},${s.lat.toFixed(4)}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          out.push({ at: [s.lon, s.lat], kind: s.kind })
+        }
+      setStops(out)
+    })
+    return () => {
+      live = false
+    }
+  }, [req.city])
 
   const results = useMemo(() => evaluate(req), [req])
   const order = useMemo(() => inspectionOrder(req), [req])
@@ -354,6 +377,8 @@ export default function App() {
               impact={impact}
               view={view}
               reveal={ran ? reveal : 1}
+              stops={stops}
+              proposed={f.label}
             />
             <div className={`wash${step === 0 ? ' is-on' : ''}`} aria-hidden="true" />
 
@@ -375,6 +400,7 @@ export default function App() {
             <AnimatePresence mode="wait">
               {step === 0 && (
                 <motion.section key="need" className="need" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16, filter: 'blur(4px)' }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }} aria-label="What your neighborhood needs">
+                  <Hook city={req.city} />
                   <span className="mono-label need-kicker">{CITIES[req.city].name} · what does the neighborhood need?</span>
                   <h1 className="need-line">
                     A{' '}

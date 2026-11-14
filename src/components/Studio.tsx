@@ -153,6 +153,13 @@ export function Studio({ result, results, req, budget, setBudget, commitBudget, 
               </motion.div>
             )}
           </AnimatePresence>
+          <div className="st-legend" aria-label="Plan legend">
+            <span><i className="lg-door is-ok" /> Step free door, also an exit</span>
+            <span><i className="lg-door is-no" /> Door with steps</span>
+            {plan.entrances.some((e) => e.isNew) && <span><i className="lg-door is-new" /> New exit</span>}
+            <span><i className="lg-route" /> Accessible route</span>
+            <span><i className="lg-wall" /> New wall</span>
+          </div>
           <div className="scrub">
             <span className={`mono-label${t < 0.5 ? ' is-on' : ''}`}>Today</span>
             <input className="range" type="range" min={0} max={1} step={0.001} value={t} style={{ ['--fill' as string]: `${t * 100}%` }} onChange={(e) => setScrub(Number(e.target.value))} aria-label="Morph from today to proposed" />

@@ -312,5 +312,269 @@
    "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
   },
   "fetched": "2026-11-14"
+ },
+ "la-boyle": {
+  "id": "la-boyle",
+  "city": "la",
+  "area": "Boyle Heights",
+  "street": "E Cesar E Chavez Ave",
+  "at": [
+   -118.2087,
+   34.0447
+  ],
+  "building": {
+   "osmId": 429205380,
+   "tags": {
+    "building": "retail",
+    "height": "5.7"
+   },
+   "ring": [
+    [
+     -118.209201,
+     34.04401
+    ],
+    [
+     -118.209293,
+     34.043867
+    ],
+    [
+     -118.209342,
+     34.043889
+    ],
+    [
+     -118.209344,
+     34.043887
+    ],
+    [
+     -118.209472,
+     34.043944
+    ],
+    [
+     -118.209379,
+     34.044089
+    ],
+    [
+     -118.209201,
+     34.04401
+    ]
+   ],
+   "areaM2": 338,
+   "center": [
+    -118.209319,
+    34.043957
+   ],
+   "distFromSeedM": 100
+  },
+  "tract": {
+   "geoid": "06037204200",
+   "name": "Census Tract 2042",
+   "landM2": 301202,
+   "pop": 3383,
+   "under5": 312,
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14"
+ },
+ "la-vermont": {
+  "id": "la-vermont",
+  "city": "la",
+  "area": "South LA",
+  "street": "S Vermont Ave",
+  "at": [
+   -118.2915,
+   33.96
+  ],
+  "building": {
+   "osmId": 412159200,
+   "tags": {
+    "building": "retail",
+    "height": "6.9"
+   },
+   "ring": [
+    [
+     -118.29142,
+     33.959392
+    ],
+    [
+     -118.29142,
+     33.959522
+    ],
+    [
+     -118.291195,
+     33.959522
+    ],
+    [
+     -118.291196,
+     33.959895
+    ],
+    [
+     -118.291024,
+     33.959895
+    ],
+    [
+     -118.291024,
+     33.959513
+    ],
+    [
+     -118.291062,
+     33.959513
+    ],
+    [
+     -118.291061,
+     33.959492
+    ],
+    [
+     -118.291137,
+     33.959492
+    ],
+    [
+     -118.291137,
+     33.959392
+    ],
+    [
+     -118.29142,
+     33.959392
+    ]
+   ],
+   "areaM2": 1060,
+   "center": [
+    -118.291191,
+    33.959547
+   ],
+   "distFromSeedM": 58
+  },
+  "tract": {
+   "geoid": "06037240302",
+   "name": "Census Tract 2403.02",
+   "landM2": 344616,
+   "pop": 2969,
+   "under5": 227,
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14"
+ },
+ "la-westlake": {
+  "id": "la-westlake",
+  "city": "la",
+  "area": "Westlake",
+  "street": "S Alvarado St",
+  "at": [
+   -118.2789,
+   34.057
+  ],
+  "building": {
+   "osmId": 419968800,
+   "tags": {
+    "building": "retail",
+    "height": "15.4"
+   },
+   "ring": [
+    [
+     -118.278575,
+     34.056737
+    ],
+    [
+     -118.278598,
+     34.056701
+    ],
+    [
+     -118.279013,
+     34.056889
+    ],
+    [
+     -118.278928,
+     34.05702
+    ],
+    [
+     -118.278512,
+     34.056833
+    ],
+    [
+     -118.278573,
+     34.056737
+    ],
+    [
+     -118.278575,
+     34.056737
+    ]
+   ],
+   "areaM2": 725,
+   "center": [
+    -118.278682,
+    34.056808
+   ],
+   "distFromSeedM": 29
+  },
+  "tract": {
+   "geoid": "06037209401",
+   "name": "Census Tract 2094.01",
+   "landM2": 215668,
+   "pop": 4391,
+   "under5": 252,
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14"
+ },
+ "la-pacoima": {
+  "id": "la-pacoima",
+  "city": "la",
+  "area": "Pacoima",
+  "street": "Van Nuys Blvd",
+  "at": [
+   -118.4247,
+   34.2577
+  ],
+  "building": {
+   "osmId": 429883397,
+   "tags": {
+    "building": "commercial",
+    "height": "5.6"
+   },
+   "ring": [
+    [
+     -118.427866,
+     34.26126
+    ],
+    [
+     -118.42814,
+     34.26152
+    ],
+    [
+     -118.42807,
+     34.261571
+    ],
+    [
+     -118.427744,
+     34.261261
+    ],
+    [
+     -118.427814,
+     34.261211
+    ],
+    [
+     -118.427818,
+     34.261214
+    ],
+    [
+     -118.427866,
+     34.26126
+    ]
+   ],
+   "areaM2": 390,
+   "center": [
+    -118.427903,
+    34.261328
+   ],
+   "distFromSeedM": 499
+  },
+  "tract": {
+   "geoid": "06037104620",
+   "name": "Census Tract 1046.20",
+   "landM2": 531171,
+   "pop": 3198,
+   "under5": 237,
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14"
  }
 }

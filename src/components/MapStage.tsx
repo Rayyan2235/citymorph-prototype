@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MLMap, Marker } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
@@ -69,12 +69,15 @@ function paint(map: MLMap) {
 
   // Our own sources: candidates (real OSM footprints) and impact overlays.
   const src = (id: string) => !map.getSource(id) && map.addSource(id, { type: 'geojson', data: EMPTY })
-  ;['cm-cands', 'cm-streets', 'cm-catch', 'cm-routes', 'cm-stops', 'cm-exist'].forEach(src)
+  ;['cm-cands', 'cm-streets', 'cm-catch', 'cm-routes', 'cm-stops', 'cm-exist', 'cm-allstops'].forEach(src)
   const add = (spec: maplibregl.LayerSpecification, before?: string) => !map.getLayer(spec.id) && map.addLayer(spec, before)
   add({ id: 'cm-catch-fill', type: 'fill', source: 'cm-catch', paint: { 'fill-color': ink, 'fill-opacity': 0.04 } }, 'kiln-3d')
   add({ id: 'cm-catch-line', type: 'line', source: 'cm-catch', paint: { 'line-color': ink, 'line-width': 1.2, 'line-dasharray': [3, 2], 'line-opacity': 0.7 } }, 'kiln-3d')
   add({ id: 'cm-streets', type: 'line', source: 'cm-streets', layout: { 'line-cap': 'round' }, paint: { 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 1.2, 16, 3.2], 'line-opacity': 0 } }, 'kiln-3d')
   add({ id: 'cm-routes', type: 'line', source: 'cm-routes', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ink, 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 16, 3.5], 'line-dasharray': [1, 2], 'line-opacity': 0.9 } })
+  add({ id: 'cm-allstops', type: 'circle', source: 'cm-allstops', minzoom: 12, paint: { 'circle-radius': ['case', ['==', ['get', 'kind'], 'bus'], 2.6, 4.5], 'circle-color': raised, 'circle-stroke-color': ink, 'circle-stroke-width': 1.2 } })
+  set('cm-allstops', 'circle-color', raised)
+  set('cm-allstops', 'circle-stroke-color', ink)
   add({ id: 'cm-exist', type: 'circle', source: 'cm-exist', paint: { 'circle-radius': 5, 'circle-color': raised, 'circle-stroke-color': ink, 'circle-stroke-width': 1.5 } })
   add({ id: 'cm-stops', type: 'circle', source: 'cm-stops', paint: { 'circle-radius': ['case', ['==', ['get', 'route'], 1], 5, 3], 'circle-color': ink, 'circle-stroke-color': raised, 'circle-stroke-width': 1.5 } })
   add({ id: 'cm-stops-t', type: 'symbol', source: 'cm-stops', filter: ['==', ['get', 'route'], 1], layout: { 'text-field': ['get', 'name'], 'text-size': 11, 'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-font': ['Noto Sans Regular'] }, paint: { 'text-color': ink, 'text-halo-color': paper, 'text-halo-width': 1.5 } })
@@ -83,12 +86,12 @@ function paint(map: MLMap) {
     type: 'fill-extrusion',
     source: 'cm-cands',
     paint: {
-      'fill-extrusion-color': ['case', ['==', ['get', 'sel'], 1], accent, ['==', ['get', 'out'], 1], sunk, stone],
+      'fill-extrusion-color': ['case', ['==', ['get', 'sel'], 1], accent, ['==', ['get', 'out'], 1], sunk, muted],
       'fill-extrusion-height': ['get', 'h'],
       'fill-extrusion-opacity': 0.96,
     },
   })
-  set('cm-cands-3d', 'fill-extrusion-color', ['case', ['==', ['get', 'sel'], 1], accent, ['==', ['get', 'out'], 1], sunk, stone])
+  set('cm-cands-3d', 'fill-extrusion-color', ['case', ['==', ['get', 'sel'], 1], accent, ['==', ['get', 'out'], 1], sunk, muted])
   set('cm-catch-fill', 'fill-color', ink)
   set('cm-catch-line', 'line-color', ink)
   set('cm-routes', 'line-color', ink)
@@ -131,9 +134,11 @@ interface Props {
   impact: Impact | null
   view: 'before' | 'after'
   reveal: number // 0..1, how far the impact has spread from the site
+  stops: { at: LngLat; kind: string }[] // every OSM stop near the city's candidates
+  proposed: string // facility label shown on the site in the impact view
 }
 
-export function MapStage({ city, results, shown, selected, onSelect, onOther, theme, mode, padRight, padBottom, showChecks, focus, impact, view, reveal }: Props) {
+export function MapStage({ city, results, shown, selected, onSelect, onOther, theme, mode, padRight, padBottom, showChecks, focus, impact, view, reveal, stops, proposed }: Props) {
   const box = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MLMap | null>(null)
   const markers = useRef<Map<string, Marker>>(new Map())
@@ -244,9 +249,9 @@ export function MapStage({ city, results, shown, selected, onSelect, onOther, th
       el.setAttribute('aria-label', `${r.property.name}${showChecks ? (pass ? `, rank ${rank}` : ', rejected') : ''}`)
       const badge = showChecks ? (pass ? String(rank) : '×') : '•'
       const why = r.checks.find((c) => !c.pass)
-      el.innerHTML = `<span class="pin-card"><span class="pin-badge">${badge}</span><span class="pin-name">${r.property.name}</span><span class="pin-cost">${out ? (why?.fail ?? 'Out') : showChecks ? `$${Math.round(r.cost / 1000)}k` : r.property.area}</span></span><span class="pin-stem"></span>`
+      el.innerHTML = `<span class="pin-card"><span class="pin-badge">${badge}</span><span class="pin-name">${r.property.name}</span><span class="pin-cost">${mode === 'impact' && view === 'after' ? `Proposed ${proposed}` : out ? (why?.fail ?? 'Out') : showChecks ? `$${Math.round(r.cost / 1000)}k` : r.property.area}</span></span><span class="pin-stem"></span>`
     })
-  }, [results, shown, selected, ready, showChecks, mode])
+  }, [results, shown, selected, ready, showChecks, mode, view, proposed])
 
   // Camera.
   useEffect(() => {
@@ -266,9 +271,24 @@ export function MapStage({ city, results, shown, selected, onSelect, onOther, th
         map.flyTo({ center: c.center, zoom: c.zoom + 0.8, pitch: 40, bearing: -12, padding, duration: reduce ? 0 : 1800, essential: true })
         return
       }
-      const b = new maplibregl.LngLatBounds(pts[0], pts[0])
-      pts.forEach((p) => b.extend(p))
-      map.fitBounds(b, { padding, pitch: 45, bearing: -12, maxZoom: 13.2, duration: reduce ? 0 : 2000, essential: true })
+      // Fit by hand: fitBounds adds the padding left over from earlier
+      // flights to its own, which zooms out far too much.
+      const lons = pts.map((p) => p[0])
+      const lats = pts.map((p) => p[1])
+      const my = (lat: number) => (1 - Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / Math.PI) / 2
+      const dx = (Math.max(...lons) - Math.min(...lons)) / 360 || 1e-6
+      const dy = Math.abs(my(Math.max(...lats)) - my(Math.min(...lats))) || 1e-6
+      const el = map.getContainer()
+      // Leave room for the agent log (bottom left) and the dock.
+      if (el.clientWidth > 900) {
+        padding.left = 420
+        padding.bottom = Math.max(padding.bottom, 150)
+      }
+      const availW = Math.max(200, el.clientWidth - padding.left - padding.right - 80)
+      const availH = Math.max(200, el.clientHeight - padding.top - padding.bottom - 80)
+      const zoom = Math.min(13.2, Math.log2(Math.min(availW / (dx * 512), availH / (dy * 512))) - 0.35)
+      const center: LngLat = [(Math.max(...lons) + Math.min(...lons)) / 2, (Math.max(...lats) + Math.min(...lats)) / 2]
+      map.flyTo({ center, zoom, padding, pitch: 45, bearing: -12, duration: reduce ? 0 : 2000, essential: true })
       return
     }
     const zoom = mode === 'impact' ? 14.6 : 16.9
@@ -286,6 +306,14 @@ export function MapStage({ city, results, shown, selected, onSelect, onOther, th
     searchMarker.current = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat(focus.lngLat).addTo(map)
     map.flyTo({ center: focus.lngLat, zoom: 16.4, pitch: 50, duration: 1800, essential: true })
   }, [focus, ready])
+
+  // Real transit stops around the candidates, shown outside the impact view.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    const data: GeoJSON.FeatureCollection = mode === 'impact' || mode === 'idle' ? EMPTY : { type: 'FeatureCollection', features: stops.map((s) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: s.at }, properties: { kind: s.kind } })) }
+    ;(map.getSource('cm-allstops') as maplibregl.GeoJSONSource | undefined)?.setData(data)
+  }, [stops, mode, ready])
 
   // Impact overlays on the real street network.
   useEffect(() => {

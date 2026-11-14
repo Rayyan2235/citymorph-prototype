@@ -1,4 +1,4 @@
-import { createRef, useContext, useMemo, useRef, useState, type RefObject } from 'react'
+import { createRef, useContext, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Accessibility, Check, ChevronDown, Landmark, Layers, Ruler, Trees, Wallet, X, type LucideIcon } from 'lucide-react'
 import type { SourceKind } from '../data/evidence'
@@ -144,11 +144,18 @@ export function Shortlist({ results, order, shown, mode, ranked, selected, onSel
   const rows = mode === 'check' && ranked ? [...passes, ...results.filter((r) => r.status === 'fail' && shown.includes(r.property.id))] : inspection
   const [open, setOpen] = useState<string | null>(null)
   const firstFail = rows.findIndex((r) => r.status === 'fail')
+  const listRef = useRef<HTMLUListElement>(null)
+  // Picking a building on the map opens its analysis here and scrolls to it.
+  useEffect(() => {
+    if (!selected) return
+    if (mode === 'check' && ranked) setOpen(selected)
+    listRef.current?.querySelector(`[data-id="${CSS.escape(selected)}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [selected, mode, ranked])
 
   return (
     <div className={`shortlist is-${mode}${ranked ? ' is-ranked' : ''}`} style={{ ['--rules' as string]: rules.length }}>
       {mode === 'check' && <RuleHead rows={inspection} rules={rules} />}
-      <ul>
+      <ul ref={listRef}>
         {rows.map((r, idx) => {
           const p = r.property
           const i = inspection.indexOf(r)
@@ -164,7 +171,9 @@ export function Shortlist({ results, order, shown, mode, ranked, selected, onSel
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], layout: { duration: 0.7, ease: [0.65, 0, 0.35, 1] } }}
-              className={`sl-row is-${r.status}${selected === p.id ? ' is-selected' : ''}${mode === 'check' && ranked && idx === firstFail ? ' is-first-out' : ''}`}
+              className={`sl-row${mode === 'check' ? ` is-${r.status}` : ''}${selected === p.id ? ' is-selected' : ''}${mode === 'check' && ranked && idx === firstFail ? ' is-first-out' : ''}`}
+              style={{ ['--d' as string]: `${cellAt(i, rules.length)}s` }}
+              data-id={p.id}
             >
               {mode === 'check' && ranked && idx === firstFail && <span className="mono-label sl-divider">Rejected · checked and set aside</span>}
               <div className="sl-main-wrap">
