@@ -36,17 +36,19 @@ The ticker at the top shows one line at a time, each computed from the evaluator
 
 ## Design
 
-Kiln token structure, with this project's own type and palette (agreed with the planner sessions after studying Linear, Vercel, Raycast, Cursor and Arcol): Inter Tight 600 for display, Inter for UI, Geist Mono for labels; paper `#F7F2E7`, ink `#171717`, one accent `#D4501E`. Failure is ink strikethrough and muted, never red. Radius 4px for controls, 8px for cards, 999px for chips; one shadow, only on floating panels over the map.
+Kiln token structure, with this project's own type and palette (agreed with the planner sessions after studying Linear, Vercel, Raycast, Cursor and Arcol): Inter Tight 600 for display, Inter for UI, Geist Mono for labels; paper `#F7F2E7`, ink `#171717`, one accent `#D4501E`. Failure is ink strikethrough and muted, never red. Radius 4px for controls, 8px for cards, 999px for chips; one shadow, a hard 4px paper offset, only on floating panels over the map.
 
 New components (candidates for Kiln):
 
 - **Journey** (`src/components/Journey.tsx`). Bottom dock: numbered stepper with a sliding active pill, Back, and a primary button that names the next step.
 - **IsoPlan** (`src/components/IsoPlan.tsx`). Isometric cutaway driven by one progress value: fixtures sink, old walls lower, zones slide, new walls rise in the accent, people walk in and sit. Takes existing rooms, fixtures, zones and entrances. Always labelled concept, areas estimated.
-- **Shortlist** (`src/components/Shortlist.tsx`). Building rows with aerial thumbnails that turn into a rule grid with staggered check and cross cells and a "why it failed" line.
+- **Shortlist** (`src/components/Shortlist.tsx`). Building rows with aerial thumbnails that turn into a rule grid with staggered check and cross cells and a "why it failed" line. The grid header shows which sources each rule read (You, CoStar, Scan, Assumed), wired to the rules with beams. The edges come from each check's evidence ids. A pulse runs down a beam as each cell is checked, in ink when that cell fails. Hover a source or a rule to trace its wires.
+- **Beam** (`src/components/Beam.tsx`). Port of Magic UI's Animated Beam (MIT). It measures two elements in a container and draws a path between them, with a straight-down S-curve option. Kiln change: no gradient. The pulse is a solid dash fired once per real event.
+- **IsoPlan drafting layer**. Dot paper, axis bubbles (A, B, C / 1, 2, 3) on the lines the proposed walls sit on, and dimension lines with slash ticks. Dimensions are derived from the record's area and marked ≈.
 - **CostBar / ReplanPanel** (`src/components/Replan.tsx`). Stacked work bar against a live budget line; core work over the line is hatched. Ranking reorders with layout animation.
 - **Cite** (`src/components/Cite.tsx`). Source as an icon chip with a hover card; assumptions dashed.
 - **MapStage** (`src/components/MapStage.tsx`). MapLibre repainted from tokens, 3D buildings, pill pins with rank, name and cost, and the chosen building lifted in the accent.
 
 ## Credits
 
-Map data © OpenStreetMap contributors, tiles by OpenFreeMap and OpenMapTiles. Aerial imagery © Esri, Maxar, Earthstar Geographics. Fonts: Inter, Inter Tight, Geist Mono (SIL OFL 1.1). Number Flow by Maxwell Barvian (MIT). Patterns studied: Arcol and TestFit (metrics that follow the geometry), Felt (paper map), Rivian configurator (preview updates per step), Cursor (plan lines), Linear (product UI as the hero), Origin UI stepper and Dice UI compare slider on 21st.dev.
+Map data © OpenStreetMap contributors, tiles by OpenFreeMap and OpenMapTiles. Aerial imagery © Esri, Maxar, Earthstar Geographics. Fonts: Inter, Inter Tight, Geist Mono (SIL OFL 1.1). Number Flow by Maxwell Barvian (MIT). Patterns studied (captured and inspected with rea): Giraffe (line drawn isometric city, struck through dropped deals, hard offset paper shadow), Rayon (CAD axis bubbles and dimension lines), Archistar and UpCodes (rule check results), Magic UI Animated Beam (source wiring), Arcol and TestFit (metrics that follow the geometry), Felt (paper map), Rivian configurator (preview updates per step), Cursor (plan lines), Linear (product UI as the hero), Origin UI stepper and Dice UI compare slider on 21st.dev.
