@@ -4,9 +4,9 @@ import { ArrowLeft, ArrowRight, Check, RotateCcw } from 'lucide-react'
 export const STEPS = [
   { id: 'need', label: 'Need', next: 'Find buildings' },
   { id: 'find', label: 'Find', next: 'Check the rules' },
-  { id: 'check', label: 'Check', next: 'Morph the best fit' },
-  { id: 'morph', label: 'Morph', next: 'Change the budget' },
-  { id: 'replan', label: 'Replan', next: 'Start over' },
+  { id: 'check', label: 'Check', next: 'Open the studio' },
+  { id: 'studio', label: 'Studio', next: 'Neighborhood impact' },
+  { id: 'impact', label: 'Impact', next: 'Start over' },
 ] as const
 
 interface Props {

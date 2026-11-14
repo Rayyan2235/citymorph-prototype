@@ -1,29 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, MotionConfig, motion } from 'motion/react'
+import { AnimatePresence, MotionConfig, animate, motion } from 'motion/react'
 import NumberFlow from '@number-flow/react'
 import { BookOpen, Moon, Sun, X } from 'lucide-react'
-import { EVIDENCE, PLANNING, PROPERTIES, SOURCE_LABEL, userEvidence, type Evidence, type PropertyId, type SourceKind } from './data/demo'
-import { evaluate, thousands, type Result } from './logic/evaluate'
-import { Cites, EvidenceContext, SOURCE_ICON } from './components/Cite'
-import { MapStage, type MapMode } from './components/MapStage'
-import { IsoPlan, seatedAt } from './components/IsoPlan'
-import { Shortlist } from './components/Shortlist'
+import { CITIES, FACILITIES, type CityId, type FacilityId } from './data/config'
+import { ASSUMPTIONS, KIND_ORDER, SITE_EVIDENCE, SOURCE_LABEL, userEvidence, type Evidence, type SourceKind } from './data/evidence'
+import { CANDIDATES } from './data/candidates'
+import { evaluate, inspectionOrder, thousands, type Request, type Result } from './logic/evaluate'
+import { loadGeo, simulate, type Impact } from './logic/impact'
+import { EvidenceContext, SOURCE_ICON } from './components/Cite'
+import { MapStage, type MapMode, type OtherBuilding } from './components/MapStage'
+import { ComparePanel, Shortlist, cellAt, rulesOf } from './components/Shortlist'
 import { Journey, STEPS } from './components/Journey'
-import { ReplanPanel } from './components/Replan'
-import { AERIAL_CREDIT } from './components/AerialFrame'
-import { Hook } from './components/Hook'
+import { Studio } from './components/Studio'
+import { ImpactPanel } from './components/ImpactPanel'
+import { AgentLog, type AgentName, type LogLine } from './components/AgentLog'
+import { SearchBox, type Hit } from './components/SearchBox'
+import { BUDGET_MAX, BUDGET_MIN } from './components/Replan'
+import type { LngLat } from './logic/geo'
 
-const PEOPLE = 40
-const START_BUDGET = 150000
+const START: Request = { city: 'houston', facility: 'learning', capacity: 40, budget: 150000, opts: { outdoorPlay: false, accessFirst: false }, variant: 'A' }
 const CUT_BUDGET = 90000
-const REQUEST = { people: PEOPLE, stepFree: true }
-const NO_SHOCKS = { rejected: [] as PropertyId[], closedEntrances: [] as string[] }
-const short = (name: string) => name.replace(/ (retail flex|two storey office|single storey office)$/, '')
-
-interface Tick {
-  now: string
-  prev: string | null
-}
+type Patch = Partial<Omit<Request, 'opts'>> & { opts?: Partial<Request['opts']> }
+const merge = (r: Request, p: Patch): Request => ({ ...r, ...p, opts: { ...r.opts, ...(p.opts ?? {}) } })
 
 function useWidth() {
   const [w, setW] = useState(() => window.innerWidth)
@@ -37,20 +35,28 @@ function useWidth() {
 
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const [req, setReqState] = useState<Request>(START)
+  const [budget, setBudget] = useState(START.budget)
   const [step, setStep] = useState(0)
   const [busy, setBusy] = useState(false)
-  const [budget, setBudget] = useState(START_BUDGET)
-  const [committed, setCommitted] = useState(START_BUDGET)
-  const [shown, setShown] = useState<PropertyId[]>([])
-  const [selected, setSelected] = useState<PropertyId | null>(null)
-  const [tick, setTick] = useState<Tick>({ now: 'Ready · sample Houston records', prev: null })
-  const [changed, setChanged] = useState<string | null>(null)
+  const [shown, setShown] = useState<string[]>([])
+  const [selected, setSelected] = useState<string | null>(null)
+  const [ranked, setRanked] = useState(false)
+  const [compare, setCompare] = useState<string[]>([])
+  const [lines, setLines] = useState<LogLine[]>([])
   const [over, setOver] = useState(false)
   const [was, setWas] = useState<{ name: string; cost: number } | null>(null)
   const [playKey, setPlayKey] = useState(0)
   const [drawer, setDrawer] = useState(false)
   const [focus, setFocus] = useState<string | null>(null)
+  const [search, setSearch] = useState<{ lngLat: LngLat; label: string; key: number } | null>(null)
+  const [other, setOther] = useState<OtherBuilding | null>(null)
+  const [impact, setImpact] = useState<Impact | null>(null)
+  const [view, setView] = useState<'before' | 'after'>('before')
+  const [reveal, setReveal] = useState(0)
+  const [ran, setRan] = useState(false)
   const timers = useRef<number[]>([])
+  const lineId = useRef(0)
   const width = useWidth()
 
   const reduce = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches, [])
@@ -62,123 +68,204 @@ export default function App() {
   }, [reduce])
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
-  const results = useMemo(() => evaluate({ ...REQUEST, budget: committed }, PROPERTIES, NO_SHOCKS), [committed])
-  const evidence = useMemo(() => [...userEvidence(PEOPLE, committed), ...EVIDENCE], [committed])
+  const results = useMemo(() => evaluate(req), [req])
+  const order = useMemo(() => inspectionOrder(req), [req])
+  const f = FACILITIES[req.facility]
+  const evidence = useMemo(
+    () => [...userEvidence(req.city, req.facility, req.capacity, req.budget, req.opts.outdoorPlay, req.opts.accessFirst), ...ASSUMPTIONS, ...SITE_EVIDENCE.filter((e) => CANDIDATES.find((c) => c.id === e.propertyId)?.city === req.city)],
+    [req],
+  )
   const byId = useMemo(() => Object.fromEntries(evidence.map((e) => [e.id, e])), [evidence])
-  const top = results[0]
-  const shownResult = results.find((r) => r.property.id === selected) ?? top
+  const passes = results.filter((r) => r.status === 'pass')
+  const shownResult = results.find((r) => r.property.id === selected) ?? passes[0] ?? results[0]
 
   const later = (ms: number, fn: () => void) => timers.current.push(window.setTimeout(fn, reduce ? Math.min(ms, 80) : ms))
-  const say = (now: string) => setTick((t) => ({ now, prev: t.now }))
   const clear = () => {
     timers.current.forEach(clearTimeout)
     timers.current = []
   }
+  const log = (agent: AgentName, text: string, tone?: LogLine['tone']) => setLines((l) => [...l, { id: ++lineId.current, agent, text, tone }])
 
   const openEvidence = useCallback((id: string) => {
     setFocus(id)
     setDrawer(true)
   }, [])
-  const select = useCallback((id: PropertyId) => setSelected(id), [])
+  const select = useCallback((id: string) => {
+    setSelected(id)
+    setOther(null)
+  }, [])
 
-  // Every ticker line is computed from the evaluator, not scripted.
-  function goTo(n: number) {
+  // Every log line is computed from the evaluator, not scripted.
+  function goTo(n: number, base: Request = req) {
     clear()
     setBusy(false)
     setOver(false)
-    const res = evaluate({ ...REQUEST, budget: committed }, PROPERTIES, NO_SHOCKS)
-    const failed = res.filter((r) => r.status === 'fail')
-    if (n < 4) setWas(null)
+    setCompare([])
+    const res = evaluate(base)
+    const ord = inspectionOrder(base)
+    const fac = FACILITIES[base.facility]
+    if (n < 3) setWas(null)
+    if (n !== 4) {
+      setImpact(null)
+      setRan(false)
+      setReveal(0)
+      setView('before')
+    }
     if (n === 0) {
       setShown([])
       setSelected(null)
-      setBudget(START_BUDGET)
-      setCommitted(START_BUDGET)
-      setChanged(null)
-      setTick({ now: 'Ready · sample Houston records', prev: null })
+      setRanked(false)
     }
     if (n === 1) {
       setSelected(null)
-      if (step < 1) {
-        setShown([])
-        setBusy(true)
-        say(`Translator · ${PEOPLE} people, 2 rooms, step free, ${thousands(committed)}`)
-        later(1100, () => say('Search · commercial listings with an interior scan and an aerial'))
-        res.forEach((r, i) => later(1500 + i * 450, () => setShown((s) => [...s, r.property.id])))
-        later(1500 + res.length * 450 + 300, () => {
-          say(`Found ${res.length} buildings in reach`)
-          setBusy(false)
-        })
-      } else {
-        setShown(res.map((r) => r.property.id))
-        say(`Found ${res.length} buildings in reach`)
-      }
+      setRanked(false)
+      setShown([])
+      setBusy(true)
+      log('Translator', `${fac.label} · ${base.capacity} ${fac.noun} · step free · ${thousands(base.budget)} · ${CITIES[base.city].name}`)
+      later(900, () => log('Scout', `Searching sample listings across ${CITIES[base.city].name}; footprints from OpenStreetMap`))
+      ord.forEach((id, i) =>
+        later(1500 + i * 420, () => {
+          const c = res.find((r) => r.property.id === id)!.property
+          setShown((s) => [...s, id])
+          log('Scout', `${c.name}, ${c.area} · ${c.footprintSqft.toLocaleString('en-US')} sq ft footprint`)
+        }),
+      )
+      later(1500 + ord.length * 420 + 300, () => {
+        log('Scout', `${ord.length} buildings already standing`, 'ok')
+        setBusy(false)
+      })
     }
     if (n === 2) {
-      setShown(res.map((r) => r.property.id))
+      setShown(ord)
       setSelected(null)
-      say(`Feasibility · 4 rules × ${res.length} buildings, in code`)
-      if (failed.length)
-        later(1500, () => say(`${short(failed[0].property.name)} fails ${failed[0].checks.find((c) => !c.pass)!.label.toLowerCase()}`))
-      later(2600, () => say(`${res.filter((r) => r.status === 'pass').length} of ${res.length} pass · ranked by fit`))
+      setRanked(false)
+      setBusy(true)
+      const rules = rulesOf(res)
+      log('Inspector', `${rules.length} hard rules × ${ord.length} buildings, run in code`)
+      ord.forEach((id, i) => {
+        const r = res.find((x) => x.property.id === id)!
+        later(cellAt(i, rules.length) * 1000, () => {
+          const fail = r.checks.find((c) => !c.pass)
+          const next = ord[i + 1] ? res.find((x) => x.property.id === ord[i + 1])!.property.name : null
+          if (fail) log('Inspector', `${r.property.name} rejected: ${fail.fail.toLowerCase()}${next ? ` → checking ${next}` : ''}`, 'fail')
+          else log('Inspector', `${r.property.name} passes all ${r.checks.length} rules`, 'ok')
+        })
+      })
+      later(cellAt(ord.length - 1, rules.length) * 1000 + 700, () => {
+        const top = res.filter((r) => r.status === 'pass')
+        if (top.length) log('Ranker', `${top.length} pass · scored on 7 criteria · #1 ${top[0].property.name}, fit ${top[0].score}`, 'ok')
+        else log('Ranker', 'No building passes every rule; open the studio to change the design', 'fail')
+        setRanked(true)
+        setBusy(false)
+      })
     }
     if (n === 3) {
-      setShown(res.map((r) => r.property.id))
-      setSelected(res[0].property.id)
+      const keep = selected && res.find((r) => r.property.id === selected)
+      const pick = keep ? selected! : (res.find((r) => r.status === 'pass') ?? res[0]).property.id
+      setShown(ord)
+      setRanked(true)
+      setSelected(pick)
       setPlayKey((k) => k + 1)
-      say(`Planner · drafting rooms inside ${short(res[0].property.name)}`)
-      later(5200, () => say(`Fits ${PEOPLE} people · est. ${thousands(res[0].cost)}`))
+      const r = res.find((x) => x.property.id === pick)!
+      log('Planner', `Drafting ${r.plan.zones.filter((z) => z.kind !== 'hall' && z.kind !== 'flex').length} rooms for a ${fac.label} inside ${r.property.name}`)
+      later(4800, () => log('Economist', `Core work ${thousands(r.coreCost)} · est. total ${thousands(r.cost)} · ${r.plan.newWallFt} ft of new walls`))
     }
     if (n === 4) {
-      setShown(res.map((r) => r.property.id))
-      setSelected(res[0].property.id)
-      say('Your turn · drag the budget')
+      const pick = selected ?? (res.find((r) => r.status === 'pass') ?? res[0]).property.id
+      setSelected(pick)
+      setShown(ord)
+      setRan(false)
+      setReveal(0)
+      setView('before')
+      setImpact(null)
+      const r = res.find((x) => x.property.id === pick)!
+      log('Simulator', `Loading the OpenStreetMap street network around ${r.property.name}`)
+      loadGeo(pick).then((g) => {
+        const im = simulate(g, r, base.facility)
+        setImpact(im)
+        log('Simulator', `${g.edges.length.toLocaleString('en-US')} street segments, ${g.stops.length} stops, ${(g.facilities[base.facility] ?? []).length} existing ${fac.label}s mapped nearby`)
+      })
     }
     setStep(n)
   }
 
-  // A committed budget change reruns the evaluator for real. Timing only
-  // paces what the judge sees.
-  function commit(next = budget) {
-    if (step !== 4 || next === committed) return
+  // A design change reruns the evaluator. If the building on screen now fails
+  // a hard rule, it is stamped, and the next best building takes over.
+  function setReq(p: Patch) {
+    const next = merge(req, p)
+    if (p.budget !== undefined) setBudget(p.budget)
+    setReqState(next)
+    if (step < 3 || !selected) return
     clear()
-    const before = results
-    const after = evaluate({ ...REQUEST, budget: next }, PROPERTIES, NO_SHOCKS)
-    const oldTop = before[0]
-    const newTop = after[0]
-    const broke = after.find((r) => r.status === 'fail' && before.find((b) => b.property.id === r.property.id)?.status === 'pass')
-    say(`Budget ${thousands(committed)} → ${thousands(next)} · re-checking rules`)
-    if (newTop.property.id !== oldTop.property.id) {
-      if (broke && broke.property.id === selected) setOver(true)
-      later(900, () => say(broke ? `${short(broke.property.name)} core work ${thousands(broke.coreCost)} is over ${thousands(next)}` : `${short(newTop.property.name)} now leads on budget left`))
-      later(2000, () => {
-        setCommitted(next)
+    const before = results.find((r) => r.property.id === selected)
+    const after = evaluate(next)
+    const now = after.find((r) => r.property.id === selected)!
+    const best = after.find((r) => r.status === 'pass')
+    const what =
+      p.budget !== undefined ? `Budget ${thousands(req.budget)} → ${thousands(next.budget)}`
+      : p.facility ? `Facility → ${FACILITIES[next.facility].label}`
+      : p.capacity !== undefined ? `Capacity ${req.capacity} → ${next.capacity}`
+      : p.variant ? `Layout option ${next.variant}`
+      : p.opts?.outdoorPlay !== undefined ? `Outdoor playground ${next.opts.outdoorPlay ? 'on' : 'off'}`
+      : p.opts?.accessFirst !== undefined ? `Accessibility first ${next.opts.accessFirst ? 'on' : 'off'}`
+      : 'Design changed'
+    log('Planner', `${what} · re-checking rules`)
+    if (now.status === 'fail' && best && best.property.id !== selected) {
+      const fail = now.checks.find((c) => !c.pass)!
+      setOver(true)
+      later(700, () => log('Inspector', `${now.property.name} rejected: ${fail.fail.toLowerCase()} → evaluating the next building`, 'fail'))
+      later(1900, () => {
         setOver(false)
-        setWas({ name: short(oldTop.property.name), cost: oldTop.cost })
-        setSelected(newTop.property.id)
+        setWas({ name: now.property.name, cost: before?.cost ?? now.cost })
+        setSelected(best.property.id)
         setPlayKey((k) => k + 1)
-        say(`Re-ranked · ${short(newTop.property.name)} first at ${thousands(newTop.cost)}`)
-        setChanged(
-          broke
-            ? `${short(newTop.property.name)} moves to #1 at about ${thousands(newTop.cost)}. ${short(broke.property.name)} needs ${thousands(broke.coreCost)} of core work.`
-            : `${short(newTop.property.name)} moves to #1 at about ${thousands(newTop.cost)}.`,
-        )
+        log('Ranker', `${best.property.name} passes; now #1 at ${thousands(best.cost)}`, 'ok')
       })
-    } else {
-      setCommitted(next)
-      if (newTop.cost !== oldTop.cost) setWas({ name: short(oldTop.property.name), cost: oldTop.cost })
-      setSelected(newTop.property.id)
-      later(500, () => say(`${short(newTop.property.name)} still first · work now ${thousands(newTop.cost)}`))
-      setChanged(
-        `${short(newTop.property.name)} still fits best at about ${thousands(newTop.cost)}.${newTop.dropped.length ? ` Dropped: ${newTop.dropped.map((d) => d.name.toLowerCase()).join(', ')}.` : ''}`,
-      )
+      return
     }
+    if (now.status === 'fail') log('Inspector', `${now.property.name} fails ${now.checks.find((c) => !c.pass)!.label.toLowerCase()}; no other building passes`, 'fail')
+    else {
+      if (before && before.cost !== now.cost) setWas({ name: now.property.name, cost: before.cost })
+      log('Economist', `${now.property.name} still passes · est. ${thousands(now.cost)} for ${now.plan.achieved} ${FACILITIES[next.facility].noun}`, 'ok')
+    }
+  }
+
+  function changeCity(c: CityId) {
+    clear()
+    const next = merge(req, { city: c })
+    setReqState(next)
+    setSelected(null)
+    setShown([])
+    setOther(null)
+    setSearch(null)
+    setLines([])
+    log('Translator', `City set to ${CITIES[c].name}`)
+    goTo(0, next)
+  }
+
+  function pickSearch(h: Hit) {
+    if (h.candidate) {
+      if (step < 1) goTo(1)
+      setSelected(h.candidate)
+    }
+    setSearch({ lngLat: h.lngLat, label: h.label, key: Date.now() })
+  }
+
+  function runImpact() {
+    if (!impact) return
+    setRan(true)
+    setView('after')
+    setReveal(0)
+    log('Simulator', `Walking the network from the site · ${impact.routes.length} transit routes traced`)
+    animate(0, 1, { duration: reduce ? 0.01 : 3.2, ease: [0.33, 0, 0.2, 1], onUpdate: setReveal })
+    later(3300, () => log('Simulator', `${impact.served.toLocaleString('en-US')} ${f.servesTract === 'under5' ? 'children under 5' : 'residents'} within a 10 minute walk (tract average) · ${Math.round(impact.coverAfter * 100)}% of streets now within 10 minutes, from ${Math.round(impact.coverBefore * 100)}%`, 'ok'))
   }
 
   // Keyboard: arrows move through the journey.
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).tagName === 'INPUT' || drawer) return
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'SELECT' || drawer) return
       if (e.key === 'ArrowRight' && !busy && step < STEPS.length - 1) goTo(step + 1)
       if (e.key === 'ArrowLeft' && step > 0) goTo(step - 1)
     }
@@ -186,29 +273,36 @@ export default function App() {
     return () => window.removeEventListener('keydown', on)
   })
 
-  // ?demo=auto (or run, cut) plays the whole journey hands free, budget cut included.
+  // ?demo=auto plays the whole journey hands free: find, check, studio, a
+  // budget cut that rejects the leader, then the impact simulation.
   const demo = useRef(new URLSearchParams(window.location.search).get('demo'))
+  const cut = useRef(false)
   useEffect(() => {
-    if (!demo.current) return
-    const wait = [900, 5200, 5600, 7200][step]
-    if (step < 4 && !busy) {
-      const t = window.setTimeout(() => goTo(step + 1), wait)
+    if (!demo.current || busy) return
+    const go = (ms: number, fn: () => void) => {
+      const t = window.setTimeout(fn, ms)
       return () => clearTimeout(t)
     }
-    if (step === 4 && committed === START_BUDGET) {
-      const t = window.setTimeout(() => {
-        setBudget(CUT_BUDGET)
-        commit(CUT_BUDGET)
-      }, 2200)
-      return () => clearTimeout(t)
-    }
+    if (step === 0) return go(1200, () => goTo(1))
+    if (step === 1) return go(1600, () => goTo(2))
+    if (step === 2 && ranked) return go(4200, () => goTo(3))
+    if (step === 3 && !cut.current)
+      return go(7000, () => {
+        cut.current = true
+        setReq({ budget: CUT_BUDGET })
+      })
+    if (step === 3 && cut.current) return go(7000, () => goTo(4))
+    if (step === 4 && impact && !ran) return go(2500, runImpact)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, busy, committed])
+  }, [step, busy, ranked, impact, ran, selected, req.budget])
 
-  const sheet = step >= 3
-  const panelW = sheet ? Math.min(900, Math.round(width * 0.58)) : Math.min(600, Math.round(width * 0.42))
-  const mapMode: MapMode = step === 0 ? 'idle' : step < 3 ? 'overview' : 'focus'
   const narrow = width < 900
+  const sideW = Math.min(640, Math.round(width * 0.44))
+  const studioW = Math.min(1180, width - 120)
+  const impactW = Math.min(440, Math.round(width * 0.34))
+  const mapMode: MapMode = step === 0 ? 'idle' : step < 3 ? 'overview' : step === 3 ? 'studio' : 'impact'
+  const padRight = narrow || step === 0 ? 0 : step === 3 ? Math.round(studioW * 0.82) : step === 4 ? impactW + 56 : sideW + 56
+  const cmp = compare.length === 2 ? compare.map((id) => results.find((r) => r.property.id === id)!).filter((r) => r && r.status === 'pass') : []
 
   return (
     <MotionConfig reducedMotion="user">
@@ -218,11 +312,20 @@ export default function App() {
             <div className="brand">
               <Logo />
               <span className="wordmark">CityMorph</span>
+              <label className="city-pick">
+                <select value={req.city} onChange={(e) => changeCity(e.target.value as CityId)} aria-label="City">
+                  {(Object.keys(CITIES) as CityId[]).map((c) => (
+                    <option key={c} value={c}>
+                      {CITIES[c].name}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-            <Ticker tick={tick} />
+            <SearchBox city={req.city} onPick={pickSearch} />
             <div className="topbar-right">
-              <span className="tag-sample" title="Sample records stand in until hackathon API keys arrive">
-                Sample data · not live CoStar
+              <span className="tag-sample" title="Footprints, streets, stops and population are real public data. Listings, interiors, vacancy, zoning and costs are simulated.">
+                Real map · simulated listings
               </span>
               <button type="button" className="icon-btn" onClick={() => setDrawer(true)} aria-label="Open evidence trail">
                 <BookOpen size={15} strokeWidth={1.7} />
@@ -236,43 +339,84 @@ export default function App() {
 
           <main className="stage">
             <MapStage
+              city={req.city}
               results={results}
               shown={shown}
               selected={selected}
               onSelect={select}
+              onOther={setOther}
               theme={theme}
               mode={mapMode}
-              padRight={narrow || step === 0 ? 0 : panelW + 48}
-              padBottom={step === 4 && !narrow ? 440 : 120}
-              showChecks={step >= 2}
+              padRight={padRight}
+              padBottom={120}
+              showChecks={step >= 2 && (ranked || step > 2)}
+              focus={search}
+              impact={impact}
+              view={view}
+              reveal={ran ? reveal : 1}
             />
             <div className={`wash${step === 0 ? ' is-on' : ''}`} aria-hidden="true" />
 
+            <AnimatePresence>
+              {other && (
+                <motion.div className="other float" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                  <div className="hs-head">
+                    <span className="hs-name">Not a candidate</span>
+                    <button type="button" className="icon-btn is-square" onClick={() => setOther(null)} aria-label="Close">
+                      <X size={13} strokeWidth={1.8} />
+                    </button>
+                  </div>
+                  <p className="hs-purpose">This building has no property record in the demo, so CityMorph cannot check it. Ranking needs a listing, an interior and an aerial.</p>
+                  <span className="mono-label">{other.height ? `OSM height ≈ ${Math.round(other.height)} m · ` : ''}OpenStreetMap footprint</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <AnimatePresence mode="wait">
               {step === 0 && (
-                <motion.section
-                  key="need"
-                  className="need"
-                  initial={{ opacity: 0, y: 24 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -16, filter: 'blur(4px)' }}
-                  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                  aria-label="What your neighborhood needs"
-                >
-                  <Hook />
-                  <span className="mono-label need-kicker">Houston · what does the neighborhood need?</span>
+                <motion.section key="need" className="need" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16, filter: 'blur(4px)' }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }} aria-label="What your neighborhood needs">
+                  <span className="mono-label need-kicker">{CITIES[req.city].name} · what does the neighborhood need?</span>
                   <h1 className="need-line">
-                    A <Blank i={0}>learning center</Blank> for <Blank i={1}>{PEOPLE} people</Blank>, with <Blank i={2}>2 activity rooms</Blank>, <Blank i={3}>step free</Blank> entry, under{' '}
-                    <Blank i={4}>{thousands(committed)}</Blank>.
+                    A{' '}
+                    <Blank i={0}>
+                      <select className="blank-select" value={req.facility} onChange={(e) => setReq({ facility: e.target.value as FacilityId, capacity: FACILITIES[e.target.value as FacilityId].capacity.default, budget: FACILITIES[e.target.value as FacilityId].budget })} aria-label="Facility type">
+                        {(Object.keys(FACILITIES) as FacilityId[]).map((id) => (
+                          <option key={id} value={id}>
+                            {FACILITIES[id].label}
+                          </option>
+                        ))}
+                      </select>
+                    </Blank>{' '}
+                    for{' '}
+                    <Blank i={1}>
+                      <select className="blank-select" value={req.capacity} onChange={(e) => setReq({ capacity: Number(e.target.value) })} aria-label="Capacity">
+                        {Array.from({ length: Math.floor((f.capacity.max - f.capacity.min) / f.capacity.step) + 1 }, (_, i) => f.capacity.min + i * f.capacity.step).map((n) => (
+                          <option key={n} value={n}>
+                            {n} {f.noun}
+                          </option>
+                        ))}
+                      </select>
+                    </Blank>
+                    , with <Blank i={2}>step free</Blank> entry, under{' '}
+                    <Blank i={3}>
+                      <select className="blank-select" value={req.budget} onChange={(e) => setReq({ budget: Number(e.target.value) })} aria-label="Budget">
+                        {Array.from({ length: (BUDGET_MAX - BUDGET_MIN) / 10000 + 1 }, (_, i) => BUDGET_MIN + i * 10000).map((n) => (
+                          <option key={n} value={n}>
+                            {thousands(n)}
+                          </option>
+                        ))}
+                      </select>
+                    </Blank>
+                    .
                   </h1>
                   <div className="need-foot">
                     <span className="mono-label">Reads</span>
                     <span className="need-sources" aria-label="Sources CityMorph reads">
-                      {(['costar', 'matterport', 'vexcel'] as SourceKind[]).map((k) => {
-                        const Icon = SOURCE_ICON[k]
+                      {(['osm', 'census', 'costar', 'matterport', 'vexcel'] as SourceKind[]).map((s) => {
+                        const Icon = SOURCE_ICON[s]
                         return (
-                          <span key={k} className="need-source">
-                            <Icon size={14} strokeWidth={1.7} /> {SOURCE_LABEL[k]}
+                          <span key={s} className={`need-source${s === 'osm' || s === 'census' ? ' is-real' : ''}`}>
+                            <Icon size={14} strokeWidth={1.7} /> {SOURCE_LABEL[s]}
                           </span>
                         )
                       })}
@@ -282,59 +426,51 @@ export default function App() {
               )}
 
               {(step === 1 || step === 2) && (
-                <motion.aside
-                  key="list"
-                  className="side float"
-                  style={{ width: narrow ? undefined : panelW }}
-                  initial={{ opacity: 0, x: 40 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 40 }}
-                  transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-                >
+                <motion.aside key="list" className="side float" style={{ width: narrow ? undefined : sideW }} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
                   <div className="side-head">
                     <span className="big-n">
-                      <NumberFlow value={step === 1 ? shown.length : results.filter((r) => r.status === 'pass').length} />
+                      <NumberFlow value={step === 1 || !ranked ? shown.length : passes.length} />
                     </span>
-                    <span className="side-title">{step === 1 ? 'buildings already standing' : `of ${results.length} pass every rule`}</span>
+                    <span className="side-title">{step === 1 ? `buildings already standing in ${CITIES[req.city].name}` : ranked ? `of ${results.length} pass every rule` : 'being checked, one by one'}</span>
                   </div>
-                  <Shortlist results={results} shown={shown} mode={step === 1 ? 'find' : 'check'} selected={selected} onSelect={select} />
-                  <p className="fig mono-label">{step === 1 ? 'Fig 02 · CoStar records + aerials' : 'Fig 03 · Rules run in code, not by the model'}</p>
+                  <Shortlist results={results} order={order} shown={shown} mode={step === 1 ? 'find' : 'check'} ranked={ranked} selected={selected} onSelect={select} compare={compare} onCompare={(id) => setCompare((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id].slice(-2)))} />
+                  <p className="fig mono-label">{step === 1 ? 'Fig 02 · Footprints from OpenStreetMap · listings are sample records' : 'Fig 03 · Rules and scores run in code, not by a model · tick two to compare'}</p>
                 </motion.aside>
               )}
 
-              {sheet && (
-                <motion.aside
-                  key="sheet"
-                  className="sheet float"
-                  style={{ width: narrow ? undefined : panelW }}
-                  initial={{ opacity: 0, x: 60 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 60 }}
-                  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: step === 3 ? 0.9 : 0 }}
-                >
-                  <PlanSheet result={shownResult} playKey={`${playKey}`} over={over} was={step === 4 ? was : null} />
-                </motion.aside>
-              )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-              {step === 4 && (
-                <motion.div key="replan" className="replan-wrap" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}>
-                  <ReplanPanel
+              {step === 3 && shownResult && (
+                <motion.aside key="studio" className="sheet float is-studio" style={{ width: narrow ? undefined : studioW }} initial={{ opacity: 0, x: 60 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 60 }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.6 }}>
+                  <Studio
+                    result={shownResult}
+                    results={results}
+                    req={req}
                     budget={budget}
                     setBudget={setBudget}
-                    commit={() => commit()}
-                    shownProperty={shownResult.property}
-                    results={results}
-                    selected={selected}
-                    onSelect={select}
-                    changed={changed}
+                    commitBudget={() => budget !== req.budget && setReq({ budget })}
+                    setReq={setReq}
+                    onSwitch={(id) => {
+                      setWas(null)
+                      setSelected(id)
+                      setPlayKey((k) => k + 1)
+                    }}
+                    playKey={`${playKey}`}
+                    over={over}
+                    was={was}
                   />
-                </motion.div>
+                </motion.aside>
+              )}
+
+              {step === 4 && shownResult && (
+                <motion.aside key="impact" className="side-impact" style={{ width: narrow ? undefined : impactW }} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
+                  <ImpactPanel result={shownResult} facility={req.facility} impact={impact} view={view} setView={setView} ran={ran} onRun={runImpact} />
+                </motion.aside>
               )}
             </AnimatePresence>
 
-            <Journey step={step} busy={busy} onGo={goTo} />
+            <AnimatePresence>{step === 2 && cmp.length === 2 && <ComparePanel a={cmp[0]} b={cmp[1]} onClose={() => setCompare([])} rankOf={(id) => passes.findIndex((r) => r.property.id === id) + 1} />}</AnimatePresence>
+
+            {!narrow && step > 0 && <AgentLog lines={lines} />}
+            <Journey step={step} busy={busy} onGo={(n) => goTo(n)} />
           </main>
 
           <AnimatePresence>{drawer && <EvidenceDrawer evidence={evidence} focus={focus} onClose={() => (setDrawer(false), setFocus(null))} results={results} />}</AnimatePresence>
@@ -352,21 +488,6 @@ function Blank({ i, children }: { i: number; children: React.ReactNode }) {
   )
 }
 
-function Ticker({ tick }: { tick: Tick }) {
-  return (
-    <div className="ticker" aria-live="polite">
-      <span className="ticker-dot" aria-hidden="true" />
-      <span className="ticker-lines">
-        <AnimatePresence initial={false} mode="popLayout">
-          <motion.span key={tick.now} className="ticker-now" initial={{ y: 14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -14, opacity: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
-            {tick.now}
-          </motion.span>
-        </AnimatePresence>
-      </span>
-    </div>
-  )
-}
-
 function Logo() {
   return (
     <svg className="logo" viewBox="0 0 24 24" aria-hidden="true">
@@ -377,138 +498,26 @@ function Logo() {
   )
 }
 
-function PlanSheet({ result, playKey, over, was }: { result: Result; playKey: string; over: boolean; was: { name: string; cost: number } | null }) {
-  const p = result.property
-  const [t, setT] = useState(0)
-  const [scrub, setScrub] = useState<number | null>(null)
-  useEffect(() => setScrub(null), [playKey, p.id])
-  const door = p.entrances.find((e) => e.stepFree)
-  const lo = Math.round((result.cost * (1 - PLANNING.costSpread)) / 1000)
-  const hi = Math.round((result.cost * (1 + PLANNING.costSpread)) / 1000)
-  return (
-    <div className="plan">
-      <div className="plan-head">
-        <div>
-          <span className="plan-name">{short(p.name)}</span>
-          <span className="mono-label plan-sub">
-            {p.area} · {p.use} <Cites ids={[p.ev[0]]} />
-          </span>
-        </div>
-        <span className="mono-label tag-concept">Concept · areas est.</span>
-      </div>
-
-      <IsoPlan
-        key={p.id}
-        property={p}
-        people={PEOPLE}
-        playKey={playKey}
-        over={over}
-        onT={setT}
-        scrub={scrub}
-        corner={
-          <>
-            {/* After a replan, name both buildings so the struck price never reads
-                like a discount on the same one. The new price is the change: orange. */}
-            {was !== null && was.cost !== result.cost && (
-              <span className="mono-label iso-was">
-                {was.name === short(p.name) ? 'Was' : was.name} <s>${Math.round(was.cost / 1000)}k</s>
-                {was.name === short(p.name) ? ', now' : `, now ${short(p.name)}`}
-              </span>
-            )}
-            <span className={`iso-cost${was !== null && was.cost !== result.cost ? ' is-changed' : ''}`}>
-              <NumberFlow value={result.cost / 1000} prefix="$" suffix="k" />
-            </span>
-            <span className="mono-label" aria-live="polite">
-              Est. work · {seatedAt(t, PEOPLE)} of {PEOPLE} seated
-            </span>
-          </>
-        }
-      />
-
-      <div className="scrub">
-        <span className={`mono-label${t < 0.5 ? ' is-on' : ''}`}>Today</span>
-        <input
-          className="range"
-          type="range"
-          min={0}
-          max={1}
-          step={0.001}
-          value={t}
-          style={{ ['--fill' as string]: `${t * 100}%` }}
-          onChange={(e) => setScrub(Number(e.target.value))}
-          aria-label="Morph from today to proposed"
-        />
-        <span className={`mono-label${t >= 0.5 ? ' is-on' : ''}`}>Proposed</span>
-      </div>
-
-      <dl className="stats">
-        <div>
-          <dt className="mono-label">People</dt>
-          <dd>
-            <NumberFlow value={PEOPLE} />
-            <Cites ids={['U1', 'A1']} />
-          </dd>
-        </div>
-        <div>
-          <dt className="mono-label">Usable</dt>
-          <dd>
-            <NumberFlow value={Math.round(result.usable / 10) * 10} suffix=" sq ft" />
-            <Cites ids={['A2']} />
-          </dd>
-        </div>
-        <div>
-          <dt className="mono-label">Cost range</dt>
-          <dd>
-            <span className="stat-text">
-              ${lo}k to ${hi}k
-            </span>
-            <Cites ids={['A3']} />
-          </dd>
-        </div>
-        <div>
-          <dt className="mono-label">Entry</dt>
-          <dd>
-            <span className="stat-text">{door ? 'Step free' : 'Steps'}</span>
-            <Cites ids={[door?.ev ?? 'U3']} />
-          </dd>
-        </div>
-      </dl>
-      <p className="fig mono-label">Fig 04 · Floor: concept from sample record · {AERIAL_CREDIT}</p>
-    </div>
-  )
-}
-
-const KIND_ORDER: SourceKind[] = ['user', 'costar', 'matterport', 'vexcel', 'assumption']
-
 function EvidenceDrawer({ evidence, focus, onClose, results }: { evidence: Evidence[]; focus: string | null; onClose: () => void; results: Result[] }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
-    ref.current?.querySelector<HTMLElement>(focus ? `[data-ev="${focus}"]` : 'button')?.scrollIntoView({ block: 'center' })
+    ref.current?.querySelector<HTMLElement>(focus ? `[data-ev="${CSS.escape(focus)}"]` : 'button')?.scrollIntoView({ block: 'center' })
     ref.current?.querySelector<HTMLElement>('button')?.focus()
     return () => window.removeEventListener('keydown', onKey)
   }, [focus, onClose])
   const name = (id?: string) => results.find((r) => r.property.id === id)?.property.name
   const verify = evidence.filter((e) => e.verify).length
+  const real = evidence.filter((e) => e.kind === 'osm' || e.kind === 'census').length
   return (
     <>
       <motion.div className="scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
-      <motion.div
-        ref={ref}
-        className="drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Evidence trail"
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      >
+      <motion.div ref={ref} className="drawer" role="dialog" aria-modal="true" aria-label="Evidence trail" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
         <div className="drawer-hd">
           <div>
             <span className="mono-label">
-              {evidence.length} claims · {verify} need a site visit
+              {evidence.length} claims · {real} from public data · {verify} need checking
             </span>
             <p className="drawer-title">Where every number comes from</p>
           </div>
@@ -518,29 +527,30 @@ function EvidenceDrawer({ evidence, focus, onClose, results }: { evidence: Evide
         </div>
         {KIND_ORDER.map((kind) => {
           const Icon = SOURCE_ICON[kind]
+          const rows = evidence.filter((e) => e.kind === kind)
+          if (!rows.length) return null
           return (
             <section key={kind} className="ev-group">
               <span className="mono-label ev-kind">
                 <Icon size={13} strokeWidth={1.7} /> {SOURCE_LABEL[kind]}
+                {(kind === 'costar' || kind === 'matterport' || kind === 'vexcel') && ' · simulated'}
               </span>
               <ul>
-                {evidence
-                  .filter((e) => e.kind === kind)
-                  .map((e) => (
-                    <li key={e.id} data-ev={e.id} className={`ev-row${focus === e.id ? ' is-focus' : ''}`}>
-                      <span className="ev-text">
-                        <span className="ev-claim">{e.claim}</span>
-                        <span className="ev-detail">
-                          {name(e.propertyId) ? `${name(e.propertyId)} · ` : ''}
-                          {e.detail}
-                        </span>
+                {rows.map((e) => (
+                  <li key={e.id} data-ev={e.id} className={`ev-row${focus === e.id ? ' is-focus' : ''}`}>
+                    <span className="ev-text">
+                      <span className="ev-claim">{e.claim}</span>
+                      <span className="ev-detail">
+                        {name(e.propertyId) ? `${name(e.propertyId)} · ` : ''}
+                        {e.detail}
                       </span>
-                      <span className="ev-meta">
-                        <span className="mono-label">{e.confidence}</span>
-                        {e.verify && <span className="mono-label ev-verify">Verify</span>}
-                      </span>
-                    </li>
-                  ))}
+                    </span>
+                    <span className="ev-meta">
+                      <span className="mono-label">{e.confidence}</span>
+                      {e.verify && <span className="mono-label ev-verify">Verify</span>}
+                    </span>
+                  </li>
+                ))}
               </ul>
             </section>
           )

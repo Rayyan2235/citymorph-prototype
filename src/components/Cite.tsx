@@ -1,7 +1,7 @@
 import { createContext, useContext, useId, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Building2, CircleDashed, ScanLine, Satellite, UserRound, type LucideIcon } from 'lucide-react'
-import { SOURCE_LABEL, type Evidence, type SourceKind } from '../data/demo'
+import { Building2, CircleDashed, Map as MapIcon, ScanLine, Satellite, UserRound, Users, type LucideIcon } from 'lucide-react'
+import { SOURCE_LABEL, type Evidence, type SourceKind } from '../data/evidence'
 
 interface EvidenceCtx {
   byId: Record<string, Evidence>
@@ -13,6 +13,8 @@ export const EvidenceContext = createContext<EvidenceCtx>({ byId: {}, open: () =
 
 export const SOURCE_ICON: Record<SourceKind, LucideIcon> = {
   user: UserRound,
+  osm: MapIcon,
+  census: Users,
   costar: Building2,
   matterport: ScanLine,
   vexcel: Satellite,

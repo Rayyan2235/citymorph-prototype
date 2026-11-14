@@ -1,0 +1,316 @@
+{
+ "hou-bellaire": {
+  "id": "hou-bellaire",
+  "city": "houston",
+  "area": "Gulfton",
+  "street": "Bellaire Blvd",
+  "at": [
+   -95.4838,
+   29.7058
+  ],
+  "building": {
+   "osmId": 317265552,
+   "tags": {
+    "addr:housenumber": "5900",
+    "addr:street": "Bellaire Boulevard",
+    "building": "retail"
+   },
+   "ring": [
+    [
+     -95.485405,
+     29.705896
+    ],
+    [
+     -95.484904,
+     29.7059
+    ],
+    [
+     -95.484903,
+     29.705807
+    ],
+    [
+     -95.485404,
+     29.705803
+    ],
+    [
+     -95.485405,
+     29.705896
+    ]
+   ],
+   "areaM2": 500,
+   "center": [
+    -95.485204,
+    29.70586
+   ],
+   "distFromSeedM": 136
+  },
+  "tract": {
+   "geoid": "48201421403",
+   "name": "Census Tract 4214.03",
+   "landM2": 654077,
+   "pop": 4503,
+   "under5": 476,
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14"
+ },
+ "hou-fulton": {
+  "id": "hou-fulton",
+  "city": "houston",
+  "area": "Near Northside",
+  "street": "Fulton St",
+  "at": [
+   -95.3601,
+   29.7907
+  ],
+  "building": {
+   "osmId": 1061217123,
+   "tags": {
+    "building": "yes"
+   },
+   "ring": [
+    [
+     -95.360633,
+     29.791546
+    ],
+    [
+     -95.360635,
+     29.791623
+    ],
+    [
+     -95.360466,
+     29.791626
+    ],
+    [
+     -95.360469,
+     29.791736
+    ],
+    [
+     -95.360639,
+     29.791732
+    ],
+    [
+     -95.360639,
+     29.791746
+    ],
+    [
+     -95.360757,
+     29.791744
+    ],
+    [
+     -95.360752,
+     29.791544
+    ],
+    [
+     -95.360633,
+     29.791546
+    ]
+   ],
+   "areaM2": 454,
+   "center": [
+    -95.360625,
+    29.791649
+   ],
+   "distFromSeedM": 117
+  },
+  "tract": {
+   "geoid": "48201210500",
+   "name": "Census Tract 2105",
+   "landM2": 2154322,
+   "pop": 4767,
+   "under5": 406,
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14"
+ },
+ "hou-navigation": {
+  "id": "hou-navigation",
+  "city": "houston",
+  "area": "East End",
+  "street": "Navigation Blvd",
+  "at": [
+   -95.3334,
+   29.7541
+  ],
+  "building": {
+   "osmId": 970919443,
+   "tags": {
+    "addr:housenumber": "403",
+    "addr:street": "North York Street",
+    "building": "office",
+    "building:levels": "1"
+   },
+   "ring": [
+    [
+     -95.334205,
+     29.755745
+    ],
+    [
+     -95.333843,
+     29.755956
+    ],
+    [
+     -95.333947,
+     29.756092
+    ],
+    [
+     -95.33431,
+     29.75588
+    ],
+    [
+     -95.334205,
+     29.755745
+    ]
+   ],
+   "areaM2": 764,
+   "center": [
+    -95.334102,
+    29.755884
+   ],
+   "distFromSeedM": 210
+  },
+  "tract": {
+   "geoid": "48201310101",
+   "name": "Census Tract 3101.01",
+   "landM2": 2195579,
+   "pop": 2768,
+   "under5": 121,
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14"
+ },
+ "hou-sharpstown": {
+  "id": "hou-sharpstown",
+  "city": "houston",
+  "area": "Sharpstown",
+  "street": "Bellaire Blvd",
+  "at": [
+   -95.5188,
+   29.7055
+  ],
+  "building": {
+   "osmId": 568802882,
+   "tags": {
+    "building": "yes"
+   },
+   "ring": [
+    [
+     -95.517807,
+     29.705697
+    ],
+    [
+     -95.517777,
+     29.705697
+    ],
+    [
+     -95.517776,
+     29.705587
+    ],
+    [
+     -95.518136,
+     29.705585
+    ],
+    [
+     -95.518138,
+     29.705694
+    ],
+    [
+     -95.517807,
+     29.705697
+    ]
+   ],
+   "areaM2": 424,
+   "center": [
+    -95.517907,
+    29.70566
+   ],
+   "distFromSeedM": 88
+  },
+  "tract": {
+   "geoid": "48201432805",
+   "name": "Census Tract 4328.05",
+   "landM2": 880827,
+   "pop": 2473,
+   "under5": 179,
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14"
+ },
+ "hou-sunnyside": {
+  "id": "hou-sunnyside",
+  "city": "houston",
+  "area": "Sunnyside",
+  "street": "Cullen Blvd",
+  "at": [
+   -95.3567,
+   29.6615
+  ],
+  "building": {
+   "osmId": 902134105,
+   "tags": {
+    "building": "yes"
+   },
+   "ring": [
+    [
+     -95.355827,
+     29.661376
+    ],
+    [
+     -95.355828,
+     29.661495
+    ],
+    [
+     -95.355785,
+     29.661495
+    ],
+    [
+     -95.355786,
+     29.661584
+    ],
+    [
+     -95.355953,
+     29.661583
+    ],
+    [
+     -95.355952,
+     29.661491
+    ],
+    [
+     -95.355906,
+     29.661491
+    ],
+    [
+     -95.355905,
+     29.661441
+    ],
+    [
+     -95.355967,
+     29.66144
+    ],
+    [
+     -95.355966,
+     29.661375
+    ],
+    [
+     -95.355827,
+     29.661376
+    ]
+   ],
+   "areaM2": 304,
+   "center": [
+    -95.355882,
+    29.661468
+   ],
+   "distFromSeedM": 79
+  },
+  "tract": {
+   "geoid": "48201331200",
+   "name": "Census Tract 3312",
+   "landM2": 3546122,
+   "pop": 5016,
+   "under5": 435,
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14"
+ }
+}
