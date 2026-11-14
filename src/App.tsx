@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import NumberFlow from '@number-flow/react'
-import { ArrowRight, BookOpen, Moon, Sun, X } from 'lucide-react'
+import { BookOpen, Moon, Sun, X } from 'lucide-react'
 import { EVIDENCE, PLANNING, PROPERTIES, SOURCE_LABEL, userEvidence, type Evidence, type PropertyId, type SourceKind } from './data/demo'
 import { evaluate, thousands, type Result } from './logic/evaluate'
 import { Cites, EvidenceContext, SOURCE_ICON } from './components/Cite'
 import { MapStage, type MapMode } from './components/MapStage'
-import { IsoPlan } from './components/IsoPlan'
+import { IsoPlan, seatedAt } from './components/IsoPlan'
 import { Shortlist } from './components/Shortlist'
 import { Journey, STEPS } from './components/Journey'
 import { ReplanPanel } from './components/Replan'
@@ -45,6 +45,7 @@ export default function App() {
   const [tick, setTick] = useState<Tick>({ now: 'Ready · sample Houston records', prev: null })
   const [changed, setChanged] = useState<string | null>(null)
   const [over, setOver] = useState(false)
+  const [was, setWas] = useState<number | null>(null)
   const [playKey, setPlayKey] = useState(0)
   const [drawer, setDrawer] = useState(false)
   const [focus, setFocus] = useState<string | null>(null)
@@ -86,6 +87,7 @@ export default function App() {
     setOver(false)
     const res = evaluate({ ...REQUEST, budget: committed }, PROPERTIES, NO_SHOCKS)
     const failed = res.filter((r) => r.status === 'fail')
+    if (n < 4) setWas(null)
     if (n === 0) {
       setShown([])
       setSelected(null)
@@ -151,6 +153,7 @@ export default function App() {
       later(2000, () => {
         setCommitted(next)
         setOver(false)
+        setWas(oldTop.cost)
         setSelected(newTop.property.id)
         setPlayKey((k) => k + 1)
         say(`Re-ranked · ${short(newTop.property.name)} first at ${thousands(newTop.cost)}`)
@@ -162,6 +165,7 @@ export default function App() {
       })
     } else {
       setCommitted(next)
+      if (newTop.cost !== oldTop.cost) setWas(oldTop.cost)
       setSelected(newTop.property.id)
       later(500, () => say(`${short(newTop.property.name)} still first · work now ${thousands(newTop.cost)}`))
       setChanged(
@@ -260,9 +264,7 @@ export default function App() {
                     <Blank i={4}>{thousands(committed)}</Blank>.
                   </h1>
                   <div className="need-foot">
-                    <button type="button" className="btn-primary is-lg" onClick={() => goTo(1)}>
-                      Find buildings <ArrowRight size={17} strokeWidth={1.9} />
-                    </button>
+                    <span className="mono-label">Reads</span>
                     <span className="need-sources" aria-label="Sources CityMorph reads">
                       {(['costar', 'matterport', 'vexcel'] as SourceKind[]).map((k) => {
                         const Icon = SOURCE_ICON[k]
@@ -308,7 +310,7 @@ export default function App() {
                   exit={{ opacity: 0, x: 60 }}
                   transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: step === 3 ? 0.9 : 0 }}
                 >
-                  <PlanSheet result={shownResult} playKey={`${playKey}`} over={over} />
+                  <PlanSheet result={shownResult} playKey={`${playKey}`} over={over} was={step === 4 ? was : null} />
                 </motion.aside>
               )}
             </AnimatePresence>
@@ -342,7 +344,7 @@ export default function App() {
 
 function Blank({ i, children }: { i: number; children: React.ReactNode }) {
   return (
-    <motion.span className="blank" initial={{ backgroundSize: '0% 100%' }} animate={{ backgroundSize: '100% 100%' }} transition={{ delay: 0.5 + i * 0.18, duration: 0.5, ease: [0.65, 0, 0.35, 1] }}>
+    <motion.span className="blank" initial={{ backgroundSize: '0% 3px' }} animate={{ backgroundSize: '100% 3px' }} transition={{ delay: 0.5 + i * 0.18, duration: 0.5, ease: [0.65, 0, 0.35, 1] }}>
       {children}
     </motion.span>
   )
@@ -373,7 +375,7 @@ function Logo() {
   )
 }
 
-function PlanSheet({ result, playKey, over }: { result: Result; playKey: string; over: boolean }) {
+function PlanSheet({ result, playKey, over, was }: { result: Result; playKey: string; over: boolean; was: number | null }) {
   const p = result.property
   const [t, setT] = useState(0)
   const [scrub, setScrub] = useState<number | null>(null)
@@ -393,7 +395,26 @@ function PlanSheet({ result, playKey, over }: { result: Result; playKey: string;
         <span className="mono-label tag-concept">Concept · areas est.</span>
       </div>
 
-      <IsoPlan key={p.id} property={p} people={PEOPLE} playKey={playKey} over={over} onT={setT} scrub={scrub} />
+      <IsoPlan
+        key={p.id}
+        property={p}
+        people={PEOPLE}
+        playKey={playKey}
+        over={over}
+        onT={setT}
+        scrub={scrub}
+        corner={
+          <>
+            <span className="iso-cost">
+              {was !== null && was !== result.cost && <s className="iso-was">${Math.round(was / 1000)}k</s>}
+              <NumberFlow value={result.cost / 1000} prefix="$" suffix="k" />
+            </span>
+            <span className="mono-label" aria-live="polite">
+              Est. work · {seatedAt(t, PEOPLE)} of {PEOPLE} seated
+            </span>
+          </>
+        }
+      />
 
       <div className="scrub">
         <span className={`mono-label${t < 0.5 ? ' is-on' : ''}`}>Today</span>
@@ -427,10 +448,9 @@ function PlanSheet({ result, playKey, over }: { result: Result; playKey: string;
           </dd>
         </div>
         <div>
-          <dt className="mono-label">Est. work</dt>
+          <dt className="mono-label">Cost range</dt>
           <dd>
-            <NumberFlow value={result.cost / 1000} prefix="$" suffix="k" />
-            <span className="stat-range">
+            <span className="stat-text">
               ${lo}k to ${hi}k
             </span>
             <Cites ids={['A3']} />

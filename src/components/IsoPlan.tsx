@@ -93,6 +93,9 @@ function seats(zones: Zone[], people: number) {
   return out.slice(0, people)
 }
 
+// How many people are seated at progress t (the walk in runs from 0.7 to 1).
+export const seatedAt = (t: number, people: number) => Math.round(clamp((t - 0.7) / 0.3) * people)
+
 interface Props {
   property: Property
   people: number
@@ -100,9 +103,10 @@ interface Props {
   over?: boolean
   onT?: (t: number) => void
   scrub?: number | null
+  corner?: React.ReactNode
 }
 
-export function IsoPlan({ property: p, people, playKey, over = false, onT, scrub = null }: Props) {
+export function IsoPlan({ property: p, people, playKey, over = false, onT, scrub = null, corner }: Props) {
   const mv = useMotionValue(0)
   const [t, setT] = useState(0)
   useMotionValueEvent(mv, 'change', (v) => {
@@ -194,8 +198,6 @@ export function IsoPlan({ property: p, people, playKey, over = false, onT, scrub
   const door = geo.door
   const doorIn = door.at.side === 'bottom' ? { x: door.at.x, y: door.at.y - 28 } : door.at.side === 'right' ? { x: door.at.x - 28, y: door.at.y } : door.at.side === 'top' ? { x: door.at.x, y: door.at.y + 28 } : { x: door.at.x + 28, y: door.at.y }
   const doorOut = door.at.side === 'bottom' ? { x: door.at.x, y: door.at.y + 60 } : door.at.side === 'right' ? { x: door.at.x + 60, y: door.at.y } : door.at.side === 'top' ? { x: door.at.x, y: door.at.y - 60 } : { x: door.at.x - 60, y: door.at.y }
-
-  const seated = Math.round(peopleT * geo.seats.length)
 
   return (
     <div className={`iso${over ? ' is-over' : ''}`}>
@@ -320,10 +322,7 @@ export function IsoPlan({ property: p, people, playKey, over = false, onT, scrub
             )
           })}
       </svg>
-      <div className="iso-count" aria-live="polite">
-        <span className="iso-count-n">{seated}</span>
-        <span className="mono-label">of {people} seated</span>
-      </div>
+      {corner && <div className="iso-count">{corner}</div>}
       {over && (
         <div className="iso-stamp" role="status">
           Over budget

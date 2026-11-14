@@ -24,8 +24,25 @@ const k = (n: number) => `$${Math.round(n / 1000)}k`
 
 // Step 2 lists the buildings as they are found; step 3 turns the same rows
 // into a rule grid. Rows keep their place so the eye can follow them.
+// One reason per rank, from the evaluator's numbers: what this building has
+// that the one it is compared with does not.
+function reasonFor(r: Result, passes: Result[]) {
+  const i = passes.indexOf(r)
+  if (i < 0 || passes.length < 2) return null
+  const other = i === 0 ? passes[1] : passes[0]
+  const room = Math.round((r.usable - other.usable) / 10) * 10
+  const cost = Math.round((other.cost - r.cost) / 1000)
+  const parts: string[] = []
+  if (room > 0) parts.push(`+${room.toLocaleString('en-US')} sq ft more room`)
+  if (room < 0) parts.push(`${(-room).toLocaleString('en-US')} sq ft less room`)
+  if (cost > 0) parts.push(`$${cost}k cheaper`)
+  if (cost < 0) parts.push(`$${-cost}k more work`)
+  return `${parts.join(' · ')} than #${i === 0 ? 2 : 1}`
+}
+
 export function Shortlist({ results, shown, mode, selected, onSelect }: Props) {
   const rows = results.filter((r) => shown.includes(r.property.id))
+  const passes = rows.filter((r) => r.status === 'pass')
   let rank = 0
   return (
     <div className={`shortlist is-${mode}`}>
@@ -105,6 +122,16 @@ export function Shortlist({ results, shown, mode, selected, onSelect }: Props) {
                   </motion.span>
                 )}
               </button>
+              {mode === 'check' && pass && reasonFor(r, passes) && (
+                <motion.p
+                  className="sl-reason"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.15 + i * 0.35 + 0.6, duration: 0.4 }}
+                >
+                  {reasonFor(r, passes)}
+                </motion.p>
+              )}
               {mode === 'check' && fail && (
                 <motion.p
                   className="sl-why"
