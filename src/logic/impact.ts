@@ -93,8 +93,8 @@ export function simulate(geo: SiteGeo, r: Result, facility: FacilityId): Impact 
 
   const km2 = hullArea(reach) / 1e6
   const t = r.property.tract
-  const people = Math.round((t.pop / t.landM2) * km2 * 1e6)
-  const children = Math.round((t.under5 / t.landM2) * km2 * 1e6)
+  const people = Math.round(((t.pop ?? 0) / t.landM2) * km2 * 1e6)
+  const children = Math.round(((t.under5 ?? 0) / t.landM2) * km2 * 1e6)
   const newCost = Math.round(f.newBuildPerSqft * r.plan.needSqft)
   const reuseMonths = Math.round(IMPACT.reuseMonthsBase + (IMPACT.reuseMonthsPer100k * r.cost) / 100000 + (r.conditional ? 4 : 0))
 

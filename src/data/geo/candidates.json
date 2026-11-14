@@ -50,7 +50,9 @@
    "landM2": 654077,
    "pop": 4503,
    "under5": 476,
-   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder",
+   "over65": 292,
+   "over80": 37
   },
   "fetched": "2026-11-14",
   "metrics": {
@@ -84,7 +86,28 @@
      "name": "Planned Parenthood",
      "m": 369
     }
+   },
+   "hospital": {
+    "name": "Cornerstone Hospital Houston – Bellaire",
+    "m": 1177,
+    "walked": false
+   },
+   "flood": {
+    "to100": 268,
+    "to500": 100,
+    "routeOut": {
+     "normal": 1179,
+     "z100": 1201,
+     "z500": 1229
+    }
    }
+  },
+  "flood": {
+   "zone": "minimal",
+   "fldZone": "X",
+   "subtype": "AREA OF MINIMAL FLOOD HAZARD",
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
   }
  },
  "hou-fulton": {
@@ -152,7 +175,9 @@
    "landM2": 2154322,
    "pop": 4767,
    "under5": 406,
-   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder",
+   "over65": 1174,
+   "over80": 325
   },
   "fetched": "2026-11-14",
   "metrics": {
@@ -194,7 +219,24 @@
      "name": "Fresenius Kidney Care",
      "m": 380
     }
+   },
+   "hospital": null,
+   "flood": {
+    "to100": 192,
+    "to500": 192,
+    "routeOut": {
+     "normal": 1137,
+     "z100": 1137,
+     "z500": 1137
+    }
    }
+  },
+  "flood": {
+   "zone": "minimal",
+   "fldZone": "X",
+   "subtype": "AREA OF MINIMAL FLOOD HAZARD",
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
   }
  },
  "hou-navigation": {
@@ -249,7 +291,9 @@
    "landM2": 2195579,
    "pop": 2768,
    "under5": 121,
-   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder",
+   "over65": 116,
+   "over80": 0
   },
   "fetched": "2026-11-14",
   "metrics": {
@@ -288,7 +332,24 @@
      "name": "Allied Medical Centers",
      "m": 39
     }
+   },
+   "hospital": null,
+   "flood": {
+    "to100": 274,
+    "to500": 235,
+    "routeOut": {
+     "normal": 1119,
+     "z100": 1119,
+     "z500": 1119
+    }
    }
+  },
+  "flood": {
+   "zone": "minimal",
+   "fldZone": "X",
+   "subtype": "AREA OF MINIMAL FLOOD HAZARD",
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
   }
  },
  "hou-sharpstown": {
@@ -344,7 +405,9 @@
    "landM2": 880827,
    "pop": 2473,
    "under5": 179,
-   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder",
+   "over65": 64,
+   "over80": 6
   },
   "fetched": "2026-11-14",
   "metrics": {
@@ -370,7 +433,28 @@
      "name": "Walker Family Practice",
      "m": 1673
     }
+   },
+   "hospital": {
+    "name": "Memorial Hermann Southwest Hospital",
+    "m": 1386,
+    "walked": false
+   },
+   "flood": {
+    "to100": 801,
+    "to500": 570,
+    "routeOut": {
+     "normal": 1163,
+     "z100": 1263,
+     "z500": 1263
+    }
    }
+  },
+  "flood": {
+   "zone": "minimal",
+   "fldZone": "X",
+   "subtype": "AREA OF MINIMAL FLOOD HAZARD",
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
   }
  },
  "hou-sunnyside": {
@@ -446,7 +530,9 @@
    "landM2": 3546122,
    "pop": 5016,
    "under5": 435,
-   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder",
+   "over65": 721,
+   "over80": 107
   },
   "fetched": "2026-11-14",
   "metrics": {
@@ -466,7 +552,24 @@
     },
     "childcare": null,
     "clinic": null
+   },
+   "hospital": null,
+   "flood": {
+    "to100": 896,
+    "to500": 550,
+    "routeOut": {
+     "normal": 1139,
+     "z100": 1139,
+     "z500": 1139
+    }
    }
+  },
+  "flood": {
+   "zone": "minimal",
+   "fldZone": "X",
+   "subtype": "AREA OF MINIMAL FLOOD HAZARD",
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
   }
  },
  "la-boyle": {
@@ -527,7 +630,9 @@
    "landM2": 301202,
    "pop": 3383,
    "under5": 312,
-   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder",
+   "over65": 269,
+   "over80": 75
   },
   "fetched": "2026-11-14",
   "metrics": {
@@ -569,7 +674,28 @@
      "name": "White Memorial Medical Center",
      "m": 1368
     }
+   },
+   "hospital": {
+    "name": "White Memorial Medical Center",
+    "m": 968,
+    "walked": false
+   },
+   "flood": {
+    "to100": 1831,
+    "to500": 1831,
+    "routeOut": {
+     "normal": 1120,
+     "z100": 1120,
+     "z500": 1120
+    }
    }
+  },
+  "flood": {
+   "zone": "minimal",
+   "fldZone": "X",
+   "subtype": "AREA OF MINIMAL FLOOD HAZARD",
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
   }
  },
  "la-vermont": {
@@ -646,7 +772,9 @@
    "landM2": 344616,
    "pop": 2969,
    "under5": 227,
-   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder",
+   "over65": 230,
+   "over80": 9
   },
   "fetched": "2026-11-14",
   "metrics": {
@@ -688,7 +816,24 @@
      "name": "Umma Community Clinic",
      "m": 2119
     }
+   },
+   "hospital": null,
+   "flood": {
+    "to100": 1132,
+    "to500": 1079,
+    "routeOut": {
+     "normal": 1142,
+     "z100": 1142,
+     "z500": 1142
+    }
    }
+  },
+  "flood": {
+   "zone": "minimal",
+   "fldZone": "X",
+   "subtype": "AREA OF MINIMAL FLOOD HAZARD",
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
   }
  },
  "la-westlake": {
@@ -749,7 +894,9 @@
    "landM2": 215668,
    "pop": 4391,
    "under5": 252,
-   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder",
+   "over65": 904,
+   "over80": 246
   },
   "fetched": "2026-11-14",
   "metrics": {
@@ -788,7 +935,28 @@
      "name": "Los Angeles Medical Center Cosmetic Surgery",
      "m": 544
     }
+   },
+   "hospital": {
+    "name": "Saint Vincent Medical Center",
+    "m": 942,
+    "walked": false
+   },
+   "flood": {
+    "to100": 65,
+    "to500": 2,
+    "routeOut": {
+     "normal": 1160,
+     "z100": 1160,
+     "z500": 1219
+    }
    }
+  },
+  "flood": {
+   "zone": "minimal",
+   "fldZone": "X",
+   "subtype": "AREA OF MINIMAL FLOOD HAZARD",
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
   }
  },
  "la-pacoima": {
@@ -849,7 +1017,9 @@
    "landM2": 531171,
    "pop": 3198,
    "under5": 237,
-   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder",
+   "over65": 380,
+   "over80": 110
   },
   "fetched": "2026-11-14",
   "metrics": {
@@ -891,7 +1061,24 @@
      "name": null,
      "m": 199
     }
+   },
+   "hospital": null,
+   "flood": {
+    "to100": null,
+    "to500": null,
+    "routeOut": {
+     "normal": 1140,
+     "z100": 1140,
+     "z500": 1140
+    }
    }
+  },
+  "flood": {
+   "zone": "minimal",
+   "fldZone": "X",
+   "subtype": "AREA OF MINIMAL FLOOD HAZARD",
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
   }
  },
  "la-highland": {
@@ -947,7 +1134,9 @@
    "landM2": 550875,
    "pop": 3351,
    "under5": 87,
-   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder",
+   "over65": 391,
+   "over80": 57
   },
   "fetched": "2026-11-14",
   "metrics": {
@@ -985,6 +1174,531 @@
     "clinic": {
      "name": "Comprehensive Community Health Centers",
      "m": 2330
+    }
+   },
+   "hospital": null,
+   "flood": {
+    "to100": null,
+    "to500": null,
+    "routeOut": {
+     "normal": 1161,
+     "z100": 1161,
+     "z500": 1161
+    }
+   }
+  },
+  "flood": {
+   "zone": "minimal",
+   "fldZone": "X",
+   "subtype": "AREA OF MINIMAL FLOOD HAZARD",
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
+  }
+ },
+ "hou-meyerland": {
+  "id": "hou-meyerland",
+  "city": "houston",
+  "area": "Meyerland",
+  "street": "S Post Oak Rd",
+  "at": [
+   -95.4616,
+   29.6858
+  ],
+  "building": {
+   "osmId": 367817553,
+   "tags": {
+    "building": "retail"
+   },
+   "ring": [
+    [
+     -95.463494,
+     29.68576
+    ],
+    [
+     -95.46349,
+     29.685545
+    ],
+    [
+     -95.46349,
+     29.685518
+    ],
+    [
+     -95.463491,
+     29.685369
+    ],
+    [
+     -95.463252,
+     29.68537
+    ],
+    [
+     -95.463255,
+     29.685762
+    ],
+    [
+     -95.46327,
+     29.685762
+    ],
+    [
+     -95.46327,
+     29.685735
+    ],
+    [
+     -95.463284,
+     29.685736
+    ],
+    [
+     -95.463292,
+     29.685742
+    ],
+    [
+     -95.463303,
+     29.685749
+    ],
+    [
+     -95.463316,
+     29.685757
+    ],
+    [
+     -95.463339,
+     29.685763
+    ],
+    [
+     -95.463365,
+     29.685765
+    ],
+    [
+     -95.463385,
+     29.685764
+    ],
+    [
+     -95.4634,
+     29.685761
+    ],
+    [
+     -95.463418,
+     29.685755
+    ],
+    [
+     -95.463435,
+     29.685745
+    ],
+    [
+     -95.46344,
+     29.685739
+    ],
+    [
+     -95.46345,
+     29.68574
+    ],
+    [
+     -95.46345,
+     29.685759
+    ],
+    [
+     -95.463494,
+     29.68576
+    ]
+   ],
+   "areaM2": 986,
+   "center": [
+    -95.463381,
+    29.685698
+   ],
+   "distFromSeedM": 172
+  },
+  "tract": {
+   "geoid": "48201420800",
+   "name": "Census Tract 4208",
+   "landM2": 2101300,
+   "pop": 2829,
+   "under5": 150,
+   "over65": 499,
+   "over80": 97,
+   "source": "ACS 2024 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14",
+  "flood": {
+   "zone": "100",
+   "fldZone": "AE",
+   "subtype": null,
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
+  },
+  "metrics": {
+   "stop": {
+    "name": null,
+    "kind": "bus",
+    "m": 509,
+    "at": [
+     -95.46513,
+     29.689038
+    ]
+   },
+   "rail": null,
+   "stopsIn10": 5,
+   "park": {
+    "name": null,
+    "kind": "park",
+    "areaM2": 103000,
+    "m": 813
+   },
+   "nearestExisting": {
+    "learning": {
+     "name": "Emler Swim School",
+     "m": 1946
+    },
+    "childcare": {
+     "name": "One Hope Preschool",
+     "m": 2711
+    },
+    "clinic": {
+     "name": "Kelsey-Seybold Clinic",
+     "m": 572
+    }
+   },
+   "hospital": {
+    "name": "Behavioral Hospital of Bellaire",
+    "m": 2699,
+    "walked": false
+   },
+   "flood": {
+    "to100": 0,
+    "to500": 0,
+    "routeOut": {
+     "normal": 1359,
+     "z100": null,
+     "z500": null
+    }
+   }
+  }
+ },
+ "hou-kashmere": {
+  "id": "hou-kashmere",
+  "city": "houston",
+  "area": "Kashmere Gardens",
+  "street": "Lockwood Dr",
+  "at": [
+   -95.3183,
+   29.8072
+  ],
+  "building": {
+   "osmId": 849340729,
+   "tags": {
+    "building": "yes"
+   },
+   "ring": [
+    [
+     -95.317377,
+     29.806651
+    ],
+    [
+     -95.317277,
+     29.806652
+    ],
+    [
+     -95.317278,
+     29.806849
+    ],
+    [
+     -95.317543,
+     29.806847
+    ],
+    [
+     -95.317541,
+     29.806691
+    ],
+    [
+     -95.317378,
+     29.806692
+    ],
+    [
+     -95.317377,
+     29.806651
+    ]
+   ],
+   "areaM2": 487,
+   "center": [
+    -95.317396,
+    29.806719
+   ],
+   "distFromSeedM": 102
+  },
+  "tract": {
+   "geoid": "48201211200",
+   "name": "Census Tract 2112",
+   "landM2": 1702874,
+   "pop": 2330,
+   "under5": 118,
+   "over65": 459,
+   "over80": 223,
+   "source": "ACS 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14",
+  "flood": {
+   "zone": "100",
+   "fldZone": "AE",
+   "subtype": "FLOODWAY",
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
+  },
+  "metrics": {
+   "stop": {
+    "name": "Kashmere Transit Center",
+    "kind": "bus",
+    "m": 1810,
+    "at": [
+     -95.327639,
+     29.81392
+    ]
+   },
+   "rail": null,
+   "stopsIn10": 0,
+   "park": {
+    "name": "Hunting Bayou Greenway",
+    "kind": "park",
+    "areaM2": 117014,
+    "m": 1007
+   },
+   "nearestExisting": {
+    "learning": {
+     "name": "McCrane-Kashmere Gardens Neighborhood Library",
+     "m": 182
+    },
+    "childcare": null,
+    "clinic": {
+     "name": "Lyndon B. Johnson General Hospital",
+     "m": 1025
+    }
+   },
+   "hospital": {
+    "name": "Lyndon B. Johnson General Hospital",
+    "m": 690,
+    "walked": false
+   },
+   "flood": {
+    "to100": 0,
+    "to500": 0,
+    "routeOut": {
+     "normal": 1141,
+     "z100": null,
+     "z500": null
+    }
+   }
+  }
+ },
+ "hou-greenspoint": {
+  "id": "hou-greenspoint",
+  "city": "houston",
+  "area": "Greenspoint",
+  "street": "Greens Rd",
+  "at": [
+   -95.4105,
+   29.9435
+  ],
+  "building": {
+   "osmId": 29382968,
+   "tags": {
+    "addr:housenumber": "181",
+    "addr:street": "North Sam Houston Parkway East",
+    "amenity": "fast_food",
+    "building": "retail",
+    "name": "Whataburger"
+   },
+   "ring": [
+    [
+     -95.409007,
+     29.941572
+    ],
+    [
+     -95.408771,
+     29.941561
+    ],
+    [
+     -95.408778,
+     29.941436
+    ],
+    [
+     -95.409014,
+     29.941446
+    ],
+    [
+     -95.409007,
+     29.941572
+    ]
+   ],
+   "areaM2": 318,
+   "center": [
+    -95.408915,
+    29.941517
+   ],
+   "distFromSeedM": 268
+  },
+  "tract": {
+   "geoid": "48201240102",
+   "name": "Census Tract 2401.02",
+   "landM2": 1921531,
+   "pop": 1689,
+   "under5": 53,
+   "over65": 119,
+   "over80": 40,
+   "source": "ACS 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14",
+  "flood": {
+   "zone": "minimal",
+   "fldZone": "X",
+   "subtype": "AREA OF MINIMAL FLOOD HAZARD",
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
+  },
+  "metrics": {
+   "stop": {
+    "name": "Greenpoint Dr @ Sam Houston Pkwy",
+    "kind": "bus",
+    "m": 224,
+    "at": [
+     -95.407607,
+     29.941522
+    ]
+   },
+   "rail": null,
+   "stopsIn10": 9,
+   "park": {
+    "name": null,
+    "kind": "park",
+    "areaM2": 56105,
+    "m": 1956
+   },
+   "nearestExisting": {
+    "learning": {
+     "name": "Lone Star College",
+     "m": 472
+    },
+    "childcare": {
+     "name": "All Stars Daycare & Preschool",
+     "m": 3113
+    },
+    "clinic": {
+     "name": "Primary Care Physician",
+     "m": 613
+    }
+   },
+   "hospital": null,
+   "flood": {
+    "to100": 352,
+    "to500": 58,
+    "routeOut": {
+     "normal": 1171,
+     "z100": 1194,
+     "z500": 1194
+    }
+   }
+  }
+ },
+ "hou-alief": {
+  "id": "hou-alief",
+  "city": "houston",
+  "area": "Alief",
+  "street": "Bellaire Blvd",
+  "at": [
+   -95.5642,
+   29.7046
+  ],
+  "building": {
+   "osmId": 1492438779,
+   "tags": {
+    "building": "yes"
+   },
+   "ring": [
+    [
+     -95.566032,
+     29.707139
+    ],
+    [
+     -95.566182,
+     29.707139
+    ],
+    [
+     -95.566182,
+     29.707049
+    ],
+    [
+     -95.565938,
+     29.707049
+    ],
+    [
+     -95.565938,
+     29.707349
+    ],
+    [
+     -95.566032,
+     29.707349
+    ],
+    [
+     -95.566032,
+     29.707139
+    ]
+   ],
+   "areaM2": 448,
+   "center": [
+    -95.566048,
+    29.707173
+   ],
+   "distFromSeedM": 337
+  },
+  "tract": {
+   "geoid": "48201452300",
+   "name": "Census Tract 4523",
+   "landM2": 2008785,
+   "pop": 2216,
+   "under5": 72,
+   "over65": 621,
+   "over80": 80,
+   "source": "ACS 5-year table B01001 via Census Reporter; tract land area from the Census geocoder"
+  },
+  "fetched": "2026-11-14",
+  "flood": {
+   "zone": "100",
+   "fldZone": "AE",
+   "subtype": null,
+   "source": "FEMA National Flood Hazard Layer",
+   "fetched": "2026-11-14"
+  },
+  "metrics": {
+   "stop": {
+    "name": "Westchase Park & Ride",
+    "kind": "bus",
+    "m": null,
+    "at": [
+     -95.562677,
+     29.717199
+    ]
+   },
+   "rail": null,
+   "stopsIn10": 0,
+   "park": {
+    "name": "Arthur Storey Park",
+    "kind": "park",
+    "areaM2": 443694,
+    "m": null
+   },
+   "nearestExisting": {
+    "learning": null,
+    "childcare": null,
+    "clinic": null
+   },
+   "hospital": {
+    "name": "West Chase Houston Hospital",
+    "m": 1066,
+    "walked": false
+   },
+   "flood": {
+    "to100": 0,
+    "to500": 0,
+    "routeOut": {
+     "normal": null,
+     "z100": null,
+     "z500": null
     }
    }
   }

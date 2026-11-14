@@ -12,7 +12,7 @@ const UA = 'citymorph-prototype/0.3 (HackPrinceton 2026 student demo)'
 const line = (e, n) => e[`B01001${String(n).padStart(3, '0')}`]
 
 for (const [id, s] of Object.entries(summary)) {
-  if (s.tract.over65 != null) continue
+  if (s.tract.over65 != null && s.tract.pop != null) continue
   const geo = `14000US${s.tract.geoid}`
   let j = null
   for (let i = 0; i < 5 && !j; i++) {
@@ -25,6 +25,9 @@ for (const [id, s] of Object.entries(summary)) {
     continue
   }
   const e = j.data[geo].B01001.estimate
+  s.tract.pop = e.B01001001
+  s.tract.under5 = e.B01001003 + e.B01001027
+  if (!s.tract.source || s.tract.source.includes('unavailable')) s.tract.source = `ACS 5-year table B01001 via Census Reporter; tract land area from the Census geocoder`
   s.tract.over65 = [20, 21, 22, 23, 24, 25, 44, 45, 46, 47, 48, 49].reduce((t, n) => t + line(e, n), 0)
   s.tract.over80 = [24, 25, 48, 49].reduce((t, n) => t + line(e, n), 0)
   console.log(id, s.tract.over65, s.tract.over80)

@@ -213,7 +213,13 @@ async function census([lon, lat]) {
   const t = g.result.geographies['Census Tracts'][0]
   // api.census.gov now needs a key, so read the same ACS table through Census Reporter.
   const geo = `14000US${t.GEOID}`
-  const cr = await getJson(`https://api.censusreporter.org/1.0/data/show/latest?table_ids=B01001&geo_ids=${geo}`)
+  // Census Reporter is sometimes down; keep the tract and backfill counts later
+  // with scripts/fetch-seniors.mjs rather than losing the site's street data.
+  const cr = await getJson(`https://api.censusreporter.org/1.0/data/show/latest?table_ids=B01001&geo_ids=${geo}`, 2).catch(() => null)
+  if (!cr) {
+    console.warn('  census counts unavailable; run scripts/fetch-seniors.mjs later')
+    return { geoid: t.GEOID, name: t.NAME, landM2: Number(t.AREALAND), pop: null, under5: null, over65: null, over80: null, source: 'Census Reporter unavailable at fetch time' }
+  }
   const e = cr.data[geo].B01001.estimate
   return {
     geoid: t.GEOID,

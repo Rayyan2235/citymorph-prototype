@@ -362,7 +362,7 @@ interface GeoSummary {
   street: string
   at: LngLat
   building: { osmId: number; tags: Record<string, string>; ring: LngLat[]; areaM2: number; center: LngLat }
-  tract: { geoid: string; name: string; landM2: number; pop: number; under5: number; over65?: number; over80?: number; source: string }
+  tract: { geoid: string; name: string; landM2: number; pop: number | null; under5: number | null; over65?: number | null; over80?: number | null; source: string }
   flood?: { zone: '100' | '500' | 'minimal' | 'unmapped'; fldZone: string | null; subtype: string | null; source: string }
   metrics?: {
     stop: { name: string | null; kind: string; m: number } | null
