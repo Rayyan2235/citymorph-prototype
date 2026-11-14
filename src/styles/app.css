@@ -32,7 +32,7 @@
   --accent-ink: #151412;
   --accent-tint: rgba(240, 112, 62, 0.16);
   --accent-tint-2: rgba(240, 112, 62, 0.3);
-  --shadow-callout: 4px 4px 0 rgba(0, 0, 0, 0.45);
+  --shadow-callout: 4px 4px 0 rgba(0, 0, 0, 0.5);
   --wash: rgba(21, 20, 18, 0.9);
 }
 :root {
@@ -474,10 +474,11 @@ p {
 }
 .beam-track {
   fill: none;
-  stroke: var(--stone);
-  stroke-width: 1;
+  stroke: transparent;
+  stroke-width: 1.2;
   transition: stroke 160ms;
 }
+.beam.is-shown .beam-track,
 .beam.is-active .beam-track {
   stroke: var(--ink);
 }
@@ -603,7 +604,7 @@ p {
   opacity: 0.6;
 }
 .sl-row.is-pass:first-child .sl-rank {
-  color: var(--accent);
+  color: var(--ink);
 }
 .sl-why {
   display: flex;
@@ -693,7 +694,7 @@ p {
   color: var(--ink-muted);
 }
 .pin.is-selected .pin-cost {
-  color: var(--accent);
+  color: var(--ink);
 }
 .pin-stem {
   width: 2px;
@@ -704,11 +705,11 @@ p {
   transform: translateY(-2px);
 }
 .pin.is-selected .pin-card {
-  border-color: var(--accent);
+  border-color: var(--ink);
 }
 .pin.is-selected .pin-badge {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--ink);
+  color: var(--paper-raised);
 }
 .pin.is-out .pin-card {
   background: var(--paper-sunk);
@@ -788,47 +789,16 @@ p {
 .iso-ground {
   fill: var(--paper-sunk);
 }
-/* drafting layer, after Rayon's CAD sheets and Giraffe's line drawings:
-   dot paper, axis bubbles, dimension lines; two stroke weights */
+/* drafting paper, after Rayon's CAD sheets and Giraffe's line drawings */
 .iso-dot {
   fill: var(--hairline);
+  opacity: 0.5;
 }
-.iso-axis-lead,
-.iso-dim-ext {
-  stroke: var(--ink-muted);
-  stroke-width: 0.5;
-  stroke-dasharray: 2 2;
-}
-.iso-bubble {
-  fill: var(--paper-raised);
-  stroke: var(--ink);
-  stroke-width: 0.8;
-}
-.iso-bubble-t {
+.iso-area-t {
   font-family: var(--font-mono);
-  font-size: 8px;
-  fill: var(--ink);
-}
-.iso-axis-floor line {
-  stroke: var(--ink-muted);
-  stroke-width: 0.5;
-  stroke-dasharray: 5 3 1 3;
-  opacity: 0.55;
-}
-.iso-dim-line {
-  stroke: var(--ink);
-  stroke-width: 0.6;
-}
-.iso-dim-tick {
-  stroke: var(--ink);
-  stroke-width: 1.2;
-  stroke-linecap: round;
-}
-.iso-dim-t {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.06em;
-  fill: var(--ink);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  fill: var(--ink-muted);
 }
 .iso-floor {
   fill: var(--paper-raised);
@@ -880,7 +850,7 @@ p {
   stroke: none;
 }
 .iso-zone.is-activity {
-  fill: var(--accent-tint);
+  fill: var(--hairline);
 }
 .iso-zone.is-reception {
   fill: var(--paper-sunk);
@@ -968,26 +938,18 @@ p {
   font-size: var(--t-44);
   line-height: 1;
   letter-spacing: -0.04em;
+  transition: color 300ms;
+}
+/* the replanned price is the change on this screen: the one orange number */
+.iso-cost.is-changed {
+  color: var(--accent);
 }
 .iso-was {
-  font-size: var(--t-24);
   color: var(--ink-muted);
-  text-decoration-thickness: 2px;
+  margin-bottom: 6px;
 }
-.iso-cost {
-  display: flex;
-  align-items: baseline;
-  gap: var(--s-2);
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: var(--t-44);
-  line-height: 1;
-  letter-spacing: -0.04em;
-}
-.iso-was {
-  font-size: var(--t-24);
-  color: var(--ink-muted);
-  text-decoration-thickness: 2px;
+.iso-was s {
+  text-decoration-thickness: 1.5px;
 }
 .iso-count-n {
   font-family: var(--font-display);
@@ -1046,12 +1008,12 @@ p {
 .range::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 2px;
-  background: linear-gradient(to right, var(--accent) var(--fill), var(--hairline) var(--fill));
+  background: linear-gradient(to right, var(--ink) var(--fill), var(--hairline) var(--fill));
 }
 .range::-moz-range-track {
   height: 4px;
   border-radius: 2px;
-  background: linear-gradient(to right, var(--accent) var(--fill), var(--hairline) var(--fill));
+  background: linear-gradient(to right, var(--ink) var(--fill), var(--hairline) var(--fill));
 }
 .range::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -1060,14 +1022,14 @@ p {
   margin-top: -7px;
   border-radius: 50%;
   background: var(--paper-raised);
-  border: 2px solid var(--accent);
+  border: 2px solid var(--ink);
 }
 .range::-moz-range-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
   background: var(--paper-raised);
-  border: 2px solid var(--accent);
+  border: 2px solid var(--ink);
 }
 
 .stats {
@@ -1232,8 +1194,8 @@ p {
   font-size: var(--t-11);
 }
 .rank-row:first-child .rank-n {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--ink);
+  color: var(--paper-raised);
 }
 .rank-name {
   font-weight: 600;

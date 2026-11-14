@@ -1,7 +1,7 @@
 import { createRef, useContext, useMemo, useRef, useState, type RefObject } from 'react'
 import { motion } from 'motion/react'
 import { Accessibility, Check, Layers, Ruler, Wallet, X, type LucideIcon } from 'lucide-react'
-import type { PropertyId, SourceKind } from '../data/demo'
+import { PLANNING, type PropertyId, type SourceKind } from '../data/demo'
 import type { CheckId, Result } from '../logic/evaluate'
 import { Aerial } from './AerialFrame'
 import { Beam, type BeamPulse } from './Beam'
@@ -43,26 +43,26 @@ const k = (n: number) => `$${Math.round(n / 1000)}k`
 // into a rule grid. Rows keep their place so the eye can follow them.
 // One reason per rank, from the evaluator's numbers: what this building has
 // that the one it is compared with does not.
+// Both passing buildings seat the 40 you asked for, so extra area only matters
+// as headroom: how many people it would hold by the same planning ratio.
+const roomFor = (r: Result) => Math.floor((r.usable - PLANNING.supportSqft) / PLANNING.sqftPerPerson)
 function reasonFor(r: Result, passes: Result[]) {
   const i = passes.indexOf(r)
   if (i < 0 || passes.length < 2) return null
   const other = i === 0 ? passes[1] : passes[0]
-  const room = Math.round((r.usable - other.usable) / 10) * 10
   const cost = Math.round((other.cost - r.cost) / 1000)
-  const parts: string[] = []
-  if (room > 0) parts.push(`+${room.toLocaleString('en-US')} sq ft more room`)
-  if (room < 0) parts.push(`${(-room).toLocaleString('en-US')} sq ft less room`)
-  if (cost > 0) parts.push(`$${cost}k cheaper`)
-  if (cost < 0) parts.push(`$${-cost}k more work`)
-  return `${parts.join(' · ')} than #${i === 0 ? 2 : 1}`
+  const money = cost > 0 ? `$${cost}k cheaper` : cost < 0 ? `$${-cost}k more work` : 'same cost'
+  return `Room for ~${roomFor(r)} by the planning ratio, #${i === 0 ? 2 : 1} ~${roomFor(other)} · ${money}`
 }
 
 // Which source kinds each rule actually read, taken from the evaluator's
-// evidence ids, plus one pulse per checked cell (ink when that cell failed).
+// evidence ids. Only failing cells pulse, and the record that caused a failure
+// (not your own stated rule) keeps its wire drawn, so the eye lands on why a
+// building is out. Every other wire appears on hover.
 function useEdges(rows: Result[]) {
   const { byId } = useContext(EvidenceContext)
   return useMemo(() => {
-    const edges: { kind: SourceKind; rule: CheckId; j: number; pulses: BeamPulse[] }[] = []
+    const edges: { kind: SourceKind; rule: CheckId; j: number; pulses: BeamPulse[]; failed: boolean }[] = []
     RULES.forEach((rule, j) => {
       const kinds = new Map<SourceKind, BeamPulse[]>()
       rows.forEach((r, i) => {
@@ -71,11 +71,11 @@ function useEdges(rows: Result[]) {
           const kind = byId[id]?.kind
           if (!kind) continue
           const list = kinds.get(kind) ?? []
-          list.push({ at: Math.max(0, cellAt(i, j) - BEAM_S * 0.85), tone: c.pass ? 'accent' : 'ink' })
+          if (!c.pass && kind !== 'user') list.push({ at: Math.max(0, cellAt(i, j) - BEAM_S * 0.85), tone: 'ink' })
           kinds.set(kind, list)
         }
       })
-      for (const [kind, pulses] of kinds) edges.push({ kind, rule: rule.id, j, pulses })
+      for (const [kind, pulses] of kinds) edges.push({ kind, rule: rule.id, j, pulses, failed: pulses.length > 0 })
     })
     const sources = SOURCE_ORDER.filter((k) => edges.some((e) => e.kind === k))
     return { edges, sources }
@@ -92,7 +92,7 @@ function RuleHead({ rows }: { rows: Result[] }) {
   return (
     <div className="sl-head" ref={head}>
       <span className="sl-sources">
-        <span className="mono-label sl-sources-label">Reads</span>
+        <span className="mono-label sl-sources-label">Reads · sample records</span>
         {sources.map((k) => {
           const Icon = SOURCE_ICON[k]
           return (
@@ -138,6 +138,7 @@ function RuleHead({ rows }: { rows: Result[] }) {
           pulses={e.pulses}
           duration={BEAM_S}
           active={isHot(e.kind, e.rule)}
+          shown={e.failed}
         />
       ))}
     </div>

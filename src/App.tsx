@@ -45,7 +45,7 @@ export default function App() {
   const [tick, setTick] = useState<Tick>({ now: 'Ready · sample Houston records', prev: null })
   const [changed, setChanged] = useState<string | null>(null)
   const [over, setOver] = useState(false)
-  const [was, setWas] = useState<number | null>(null)
+  const [was, setWas] = useState<{ name: string; cost: number } | null>(null)
   const [playKey, setPlayKey] = useState(0)
   const [drawer, setDrawer] = useState(false)
   const [focus, setFocus] = useState<string | null>(null)
@@ -153,7 +153,7 @@ export default function App() {
       later(2000, () => {
         setCommitted(next)
         setOver(false)
-        setWas(oldTop.cost)
+        setWas({ name: short(oldTop.property.name), cost: oldTop.cost })
         setSelected(newTop.property.id)
         setPlayKey((k) => k + 1)
         say(`Re-ranked · ${short(newTop.property.name)} first at ${thousands(newTop.cost)}`)
@@ -165,7 +165,7 @@ export default function App() {
       })
     } else {
       setCommitted(next)
-      if (newTop.cost !== oldTop.cost) setWas(oldTop.cost)
+      if (newTop.cost !== oldTop.cost) setWas({ name: short(oldTop.property.name), cost: oldTop.cost })
       setSelected(newTop.property.id)
       later(500, () => say(`${short(newTop.property.name)} still first · work now ${thousands(newTop.cost)}`))
       setChanged(
@@ -375,7 +375,7 @@ function Logo() {
   )
 }
 
-function PlanSheet({ result, playKey, over, was }: { result: Result; playKey: string; over: boolean; was: number | null }) {
+function PlanSheet({ result, playKey, over, was }: { result: Result; playKey: string; over: boolean; was: { name: string; cost: number } | null }) {
   const p = result.property
   const [t, setT] = useState(0)
   const [scrub, setScrub] = useState<number | null>(null)
@@ -405,8 +405,15 @@ function PlanSheet({ result, playKey, over, was }: { result: Result; playKey: st
         scrub={scrub}
         corner={
           <>
-            <span className="iso-cost">
-              {was !== null && was !== result.cost && <s className="iso-was">${Math.round(was / 1000)}k</s>}
+            {/* After a replan, name both buildings so the struck price never reads
+                like a discount on the same one. The new price is the change: orange. */}
+            {was !== null && was.cost !== result.cost && (
+              <span className="mono-label iso-was">
+                {was.name === short(p.name) ? 'Was' : was.name} <s>${Math.round(was.cost / 1000)}k</s>
+                {was.name === short(p.name) ? ', now' : `, now ${short(p.name)}`}
+              </span>
+            )}
+            <span className={`iso-cost${was !== null && was.cost !== result.cost ? ' is-changed' : ''}`}>
               <NumberFlow value={result.cost / 1000} prefix="$" suffix="k" />
             </span>
             <span className="mono-label" aria-live="polite">
@@ -464,7 +471,7 @@ function PlanSheet({ result, playKey, over, was }: { result: Result; playKey: st
           </dd>
         </div>
       </dl>
-      <p className="fig mono-label">Fig 04 · Floor from interior scan · {AERIAL_CREDIT}</p>
+      <p className="fig mono-label">Fig 04 · Floor: concept from sample record · {AERIAL_CREDIT}</p>
     </div>
   )
 }

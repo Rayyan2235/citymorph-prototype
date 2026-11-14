@@ -149,24 +149,9 @@ export function IsoPlan({ property: p, people, playKey, over = false, onT, scrub
     const oldKeys = new Set(oldSegs.map(key))
     const newKeys = new Set(newSegs.map(key))
     const scale = p.sqft / (box.w * box.h)
-    // Structural axes for the drafting layer: the box edges plus every line a
-    // proposed wall sits on, like the column grid on a CAD sheet.
-    // Axes closer than MIN apart would stack their bubbles, so keep the first.
-    const MIN = 48
-    const spaced = (vals: number[], end: number) => {
-      const out: number[] = []
-      for (const v of [...new Set(vals)].sort((a, b) => a - b)) if (!out.length || v - out[out.length - 1] >= MIN) out.push(v)
-      if (out[out.length - 1] !== end) out[out.length - 1] = end
-      return out
-    }
-    const axesX = spaced([box.x, box.x + box.w, ...newSegs.filter((s) => s.x1 === s.x2).map((s) => s.x1)], box.x + box.w).slice(0, 7)
-    const axesY = spaced([box.y, box.y + box.h, ...newSegs.filter((s) => s.y1 === s.y2).map((s) => s.y1)], box.y + box.h).slice(0, 6)
     return {
       box,
       scale,
-      ft: Math.sqrt(scale),
-      axesX,
-      axesY,
       kept: newSegs.filter((s) => oldKeys.has(key(s))),
       gone: oldSegs.filter((s) => !newKeys.has(key(s))),
       added: newSegs.filter((s) => !oldKeys.has(key(s))),
@@ -211,14 +196,6 @@ export function IsoPlan({ property: p, people, playKey, over = false, onT, scrub
   })()
   const vbNums = vb.split(' ').map(Number)
 
-  // Dimension lines on the two front edges, offset outward, with slash ticks.
-  const DIM = 34
-  const dims = [
-    { a: [box.x, box.y + box.h + DIM], b: [box.x + box.w, box.y + box.h + DIM], ext: [[box.x, box.y + box.h], [box.x + box.w, box.y + box.h]], len: box.w, rot: 30 },
-    { a: [box.x + box.w + DIM, box.y], b: [box.x + box.w + DIM, box.y + box.h], ext: [[box.x + box.w, box.y], [box.x + box.w, box.y + box.h]], len: box.h, rot: -30 },
-  ]
-  const letters = 'ABCDEFG'
-
   const door = geo.door
   const doorIn = door.at.side === 'bottom' ? { x: door.at.x, y: door.at.y - 28 } : door.at.side === 'right' ? { x: door.at.x - 28, y: door.at.y } : door.at.side === 'top' ? { x: door.at.x, y: door.at.y + 28 } : { x: door.at.x + 28, y: door.at.y }
   const doorOut = door.at.side === 'bottom' ? { x: door.at.x, y: door.at.y + 60 } : door.at.side === 'right' ? { x: door.at.x + 60, y: door.at.y } : door.at.side === 'top' ? { x: door.at.x, y: door.at.y - 60 } : { x: door.at.x - 60, y: door.at.y }
@@ -249,36 +226,6 @@ export function IsoPlan({ property: p, people, playKey, over = false, onT, scrub
           <polygon key={key(s)} className="iso-wall is-back" points={wall(s, H)} />
         ))}
 
-        {/* axis bubbles above the back walls, with leader lines down to the wall top */}
-        <g className="iso-axes">
-          {geo.axesX.map((x, i) => {
-            const [bx, by] = pt(x, box.y - 36, H)
-            const [fx, fy] = pt(x, box.y, H)
-            return (
-              <g key={'ax' + x}>
-                <line x1={bx} y1={by} x2={fx} y2={fy} className="iso-axis-lead" />
-                <circle cx={bx} cy={by} r={7.5} className="iso-bubble" />
-                <text x={bx} y={by + 3} textAnchor="middle" className="iso-bubble-t">
-                  {letters[i]}
-                </text>
-              </g>
-            )
-          })}
-          {geo.axesY.map((y, i) => {
-            const [bx, by] = pt(box.x - 36, y, H)
-            const [fx, fy] = pt(box.x, y, H)
-            return (
-              <g key={'ay' + y}>
-                <line x1={bx} y1={by} x2={fx} y2={fy} className="iso-axis-lead" />
-                <circle cx={bx} cy={by} r={7.5} className="iso-bubble" />
-                <text x={bx} y={by + 3} textAnchor="middle" className="iso-bubble-t">
-                  {i + 1}
-                </text>
-              </g>
-            )
-          })}
-        </g>
-
         {/* today's rooms, faint */}
         {p.existing.map((e) => (
           <polygon key={e.id} className="iso-room-old" style={{ opacity: 1 - zoneT }} points={poly([pt(e.rect.x, e.rect.y), pt(e.rect.x + e.rect.w, e.rect.y), pt(e.rect.x + e.rect.w, e.rect.y + e.rect.h), pt(e.rect.x, e.rect.y + e.rect.h)])} />
@@ -302,20 +249,6 @@ export function IsoPlan({ property: p, people, playKey, over = false, onT, scrub
             />
           )
         })}
-
-        {/* axis lines across the floor, under the walls */}
-        <g className="iso-axis-floor">
-          {geo.axesX.slice(1, -1).map((x) => {
-            const [ax, ay] = pt(x, box.y)
-            const [bx, by] = pt(x, box.y + box.h)
-            return <line key={'fx' + x} x1={ax} y1={ay} x2={bx} y2={by} />
-          })}
-          {geo.axesY.slice(1, -1).map((y) => {
-            const [ax, ay] = pt(box.x, y)
-            const [bx, by] = pt(box.x + box.w, y)
-            return <line key={'fy' + y} x1={ax} y1={ay} x2={bx} y2={by} />
-          })}
-        </g>
 
         {/* retail fixtures and old furniture sink away */}
         {fixturesT > 0.02 &&
@@ -361,29 +294,14 @@ export function IsoPlan({ property: p, people, playKey, over = false, onT, scrub
           <polygon key={key(s)} className="iso-wall is-front" points={wall(s, H_FRONT)} />
         ))}
 
-        {/* overall dimensions, derived from the record's area: estimates, so ≈ */}
-        <g className="iso-dims">
-          {dims.map((d, i) => {
-            const [ax, ay] = pt(d.a[0], d.a[1])
-            const [bx, by] = pt(d.b[0], d.b[1])
-            const [mx, my] = [(ax + bx) / 2, (ay + by) / 2]
-            const tick = (x: number, y: number) => `M${x - 4} ${y + 4} L${x + 4} ${y - 4}`
-            return (
-              <g key={i}>
-                {d.ext.map(([ex, ey], k) => {
-                  const [x0, y0] = pt(ex, ey)
-                  const [x1, y1] = k === 0 ? [ax, ay] : [bx, by]
-                  return <line key={k} x1={x0} y1={y0} x2={x1} y2={y1} className="iso-dim-ext" />
-                })}
-                <line x1={ax} y1={ay} x2={bx} y2={by} className="iso-dim-line" />
-                <path d={tick(ax, ay) + tick(bx, by)} className="iso-dim-tick" />
-                <text transform={`translate(${mx} ${my}) rotate(${d.rot}) translate(0 -5)`} textAnchor="middle" className="iso-dim-t">
-                  ≈ {Math.round((d.len * geo.ft) / 1).toLocaleString('en-US')} FT
-                </text>
-              </g>
-            )
-          })}
-        </g>
+        {/* the one measured number we have: the listing's gross area */}
+        <text
+          transform={`translate(${(pt(box.x, box.y + box.h + 30)[0] + pt(box.x + box.w, box.y + box.h + 30)[0]) / 2} ${(pt(box.x, box.y + box.h + 30)[1] + pt(box.x + box.w, box.y + box.h + 30)[1]) / 2}) rotate(30)`}
+          textAnchor="middle"
+          className="iso-area-t"
+        >
+          {p.sqft.toLocaleString('en-US')} SQ FT GROSS · SAMPLE LISTING
+        </text>
 
         {/* entrances */}
         {p.entrances.map((e) => {

@@ -23,9 +23,10 @@ interface Props {
   fromAnchor?: 'center' | 'bottom' | 'right'
   toAnchor?: 'center' | 'top' | 'left'
   vertical?: boolean
+  shown?: boolean // draw the track at rest; otherwise only while active
 }
 
-export function Beam({ containerRef, fromRef, toRef, curvature = 0, pulses = [], duration = 0.7, active = false, fromAnchor = 'center', toAnchor = 'center', vertical = false }: Props) {
+export function Beam({ containerRef, fromRef, toRef, curvature = 0, pulses = [], duration = 0.7, active = false, fromAnchor = 'center', toAnchor = 'center', vertical = false, shown = true }: Props) {
   const [d, setD] = useState('')
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [len, setLen] = useState(0)
@@ -64,7 +65,7 @@ export function Beam({ containerRef, fromRef, toRef, curvature = 0, pulses = [],
 
   const dash = Math.max(18, len * 0.35)
   return (
-    <svg className={`beam${active ? ' is-active' : ''}`} width={size.w} height={size.h} viewBox={`0 0 ${size.w} ${size.h}`} aria-hidden="true">
+    <svg className={`beam${active ? ' is-active' : ''}${shown ? ' is-shown' : ''}`} width={size.w} height={size.h} viewBox={`0 0 ${size.w} ${size.h}`} aria-hidden="true">
       <path ref={pathRef} d={d} className="beam-track" />
       {len > 0 &&
         pulses.map((p, i) => (
