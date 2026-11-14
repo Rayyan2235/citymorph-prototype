@@ -127,9 +127,26 @@ export function IsoPlan({ plan, name, playKey, over = false, onT, scrub = null, 
     return { x: xs[0] - pad, y: top - pad, w: xs[1] - xs[0] + pad * 2, h: bottom - top + pad * 2 }
   }, [box, lot])
 
-  // Zoom and pan: a camera over the base viewBox.
-  const [cam, setCam] = useState({ k: 1, x: 0, y: 0 })
-  useEffect(() => setCam({ k: 1, x: 0, y: 0 }), [plan.box, name])
+  // Zoom and pan: a camera over the base viewBox. In a building much bigger
+  // than the program, start framed on the rooms rather than the spare space.
+  const fit = useMemo(() => {
+    const used = plan.zones.filter((z) => !z.id.startsWith('spare'))
+    if (used.length === plan.zones.length || !interactive) return { k: 1, x: 0, y: 0 }
+    const pts = used.flatMap((z) => [pt(z.to.x, z.to.y, H), pt(z.to.x + z.to.w, z.to.y + z.to.h), pt(z.to.x, z.to.y + z.to.h), pt(z.to.x + z.to.w, z.to.y)])
+    const xs = pts.map((p) => p[0])
+    const ys = pts.map((p) => p[1])
+    const w = Math.max(...xs) - Math.min(...xs)
+    const h = Math.max(...ys) - Math.min(...ys)
+    const k = Math.min(1.4, Math.max(1, Math.min(base.w / (w * 1.25), base.h / (h * 1.35))))
+    const cx = (Math.max(...xs) + Math.min(...xs)) / 2 - (base.x + base.w / 2)
+    const cy = (Math.max(...ys) + Math.min(...ys)) / 2 - (base.y + base.h / 2)
+    // Keep the camera inside the drawing so the frame never shows empty paper.
+    const maxX = (base.w - base.w / k) / 2
+    const maxY = (base.h - base.h / k) / 2
+    return { k, x: Math.max(-maxX, Math.min(maxX, cx)), y: Math.max(-maxY, Math.min(maxY, cy)) }
+  }, [plan, base, interactive])
+  const [cam, setCam] = useState(fit)
+  useEffect(() => setCam(fit), [fit])
   const vb = { w: base.w / cam.k, h: base.h / cam.k, x: base.x + base.w / 2 - base.w / cam.k / 2 + cam.x, y: base.y + base.h / 2 - base.h / cam.k / 2 + cam.y }
   const svgRef = useRef<SVGSVGElement>(null)
   const drag = useRef<{ x: number; y: number; cx: number; cy: number; moved: boolean } | null>(null)
@@ -373,7 +390,7 @@ export function IsoPlan({ plan, name, playKey, over = false, onT, scrub = null, 
           <button type="button" className="icon-btn is-square" onClick={() => zoom(0.8)} aria-label="Zoom out">
             <Minus size={14} strokeWidth={1.8} />
           </button>
-          <button type="button" className="icon-btn is-square" onClick={() => setCam({ k: 1, x: 0, y: 0 })} aria-label="Reset view">
+          <button type="button" className="icon-btn is-square" onClick={() => setCam(cam.k === fit.k && cam.x === fit.x ? { k: 1, x: 0, y: 0 } : fit)} aria-label="Reset view">
             <Scan size={14} strokeWidth={1.8} />
           </button>
         </div>

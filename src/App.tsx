@@ -456,6 +456,7 @@ export default function App() {
                     playKey={`${playKey}`}
                     over={over}
                     was={was}
+                    note={lines.at(-1) ?? null}
                   />
                 </motion.aside>
               )}

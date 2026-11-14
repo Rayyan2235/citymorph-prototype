@@ -47,7 +47,8 @@ const FACILITY_QUERY = {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // Public Overpass instances; rotate when one is overloaded.
-const MIRRORS = ['https://maps.mail.ru/osm/tools/overpass/api/interpreter', OVERPASS, 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']
+// private.coffee and kumi.systems were timing out on 2026-11-14; add them back if they recover.
+const MIRRORS = ['https://maps.mail.ru/osm/tools/overpass/api/interpreter', OVERPASS]
 let mirror = 0
 
 async function overpass(q, tries = 8) {

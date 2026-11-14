@@ -202,9 +202,8 @@ export function Shortlist({ results, order, shown, mode, ranked, selected, onSel
                       {pass ? (
                         <>
                           <span className="sl-rank">{ranked ? `#${rank}` : 'Pass'}</span>
-                          <span className="mono-label">
-                            Fit {r.score} · {k(r.cost)}
-                          </span>
+                          <span className="mono-label">Fit {r.score}</span>
+                          <span className="mono-label">{k(r.cost)}</span>
                         </>
                       ) : (
                         <span className="mono-label sl-out">Rejected</span>
@@ -212,7 +211,10 @@ export function Shortlist({ results, order, shown, mode, ranked, selected, onSel
                     </motion.span>
                   )}
                 </button>
-                {mode === 'check' && pass && ranked && (
+              </div>
+              {mode === 'check' && pass && ranked && (
+                <div className="sl-foot">
+                  <p className="sl-reason">{!next ? 'The only building that passes' : rank === 1 ? whyAbove(r, next) : `Behind ${passes[rank - 2].property.name}: ${whyAbove(passes[rank - 2], r).replace(/^Ahead of .*? on /, 'it leads on ')}`}</p>
                   <span className="sl-tools">
                     <label className="sl-compare" title="Compare side by side">
                       <input type="checkbox" checked={compare.includes(p.id)} onChange={() => onCompare(p.id)} />
@@ -222,10 +224,7 @@ export function Shortlist({ results, order, shown, mode, ranked, selected, onSel
                       <ChevronDown size={14} strokeWidth={1.8} />
                     </button>
                   </span>
-                )}
-              </div>
-              {mode === 'check' && pass && ranked && next && (
-                <p className="sl-reason">{rank === 1 ? whyAbove(r, next) : `Behind ${passes[rank - 2].property.name}: ${whyAbove(passes[rank - 2], r).replace(/^Ahead of .*? on /, 'it leads on ')}`}</p>
+                </div>
               )}
               <AnimatePresence initial={false}>
                 {isOpen && (
@@ -275,11 +274,11 @@ export function ComparePanel({ a, b, onClose, rankOf }: { a: Result; b: Result; 
           const other = y.criteria.find((o) => o.id === c.id)!
           return (
             <div key={c.id} className="cmp-row">
-              <span className="bars-label">{c.label}</span>
+              <span className="cmp-label">{c.label}</span>
               {[c, other].map((v, n) => (
                 <span key={n} className="cmp-cell">
-                  <span className="bars-track">
-                    <span className="bars-fill" style={{ width: `${v.value * 100}%` }} />
+                  <span className="cmp-track">
+                    <span className="cmp-fill" style={{ width: `${v.value * 100}%` }} />
                   </span>
                   <span className="cmp-note">{v.note}</span>
                 </span>

@@ -25,9 +25,10 @@ interface Props {
   playKey: string
   over: boolean
   was: { name: string; cost: number } | null
+  note?: { agent: string; text: string; tone?: string } | null
 }
 
-export function Studio({ result, results, req, budget, setBudget, commitBudget, setReq, onSwitch, playKey, over, was }: Props) {
+export function Studio({ result, results, req, budget, setBudget, commitBudget, setReq, onSwitch, playKey, over, was, note }: Props) {
   const p = result.property
   const f = FACILITIES[req.facility]
   const plan = result.plan
@@ -76,6 +77,11 @@ export function Studio({ result, results, req, budget, setBudget, commitBudget, 
           <span className="mono-label plan-sub">
             {p.area} · {p.use} · {p.vacancy} <Cites ids={[`${p.id}:listing`, `${p.id}:osm`]} />
           </span>
+          {note && (
+            <motion.span key={note.text} className={`st-note${note.tone ? ` is-${note.tone}` : ''}`} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}>
+              <span className="mono-label">{note.agent}</span> {note.text}
+            </motion.span>
+          )}
         </div>
         <div className="st-tabs" role="tablist" aria-label="Facility type">
           {(Object.keys(FACILITIES) as FacilityId[]).map((id) => (
@@ -118,7 +124,7 @@ export function Studio({ result, results, req, budget, setBudget, commitBudget, 
                   </span>
                 )}
                 <span className={`iso-cost${changed ? ' is-changed' : ''}`}>
-                  <NumberFlow value={result.cost / 1000} prefix="$" suffix="k" />
+                  <NumberFlow value={Math.round(result.cost / 1000)} prefix="$" suffix="k" />
                 </span>
                 <span className="mono-label" aria-live="polite">
                   Est. work · {seatedAt(t, people)} of {people} {req.facility === 'clinic' ? 'people at a time' : f.noun}

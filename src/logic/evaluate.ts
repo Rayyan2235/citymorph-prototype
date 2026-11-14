@@ -162,7 +162,7 @@ function evaluateOne(c: Candidate, req: Request): Omit<Result, 'conflicts'> {
   const criteria: Criterion[] = [
     { id: 'space', label: 'Room to grow', value: clamp(((plan.achieved / req.capacity) * plan.squeeze - 0.9) / 0.6), weight: W.space, note: plan.squeeze < 1 ? `Rooms squeezed to ${Math.round(plan.squeeze * 100)}%` : `Room for ${plan.achieved}`, ev: ['P1', f.ratioEv] },
     { id: 'access', label: 'Accessibility', value: door ? clamp(0.6 + (door.lip ? 0 : 0.2) + (plan.entrances.filter((e) => !e.isNew).length > 1 ? 0.2 : 0)) : 0, weight: W.access, note: door ? `${door.name}${plan.entrances.length > 1 ? `, ${plan.entrances.length} exits` : ''}` : 'Steps at every door', ev: [`${c.id}:scan`] },
-    { id: 'transit', label: 'Transit access', value: clamp(1 - (stopM - 150) / 1050 + (m.rail && m.rail.m <= 800 ? 0.15 : 0)), weight: W.transit, note: m.stop ? `${m.stop.kind === 'bus' ? 'Bus stop' : 'Rail station'} ${walkMin(m.stop.m)} min walk${m.rail && m.rail.m <= 800 ? `, rail ${walkMin(m.rail.m)} min` : ''}` : 'No stop within 1.3 km', ev: [`${c.id}:osmwalk`] },
+    { id: 'transit', label: 'Transit access', value: clamp(1 - (stopM - 150) / 1050 + (m.rail && m.rail.m <= 800 ? 0.15 : 0)), weight: W.transit, note: m.stop ? `${m.stop.kind === 'bus' ? 'Bus stop' : 'Rail station'} ${walkMin(m.stop.m)} min walk${m.rail && m.rail.m <= 800 ? `, rail ${walkMin(m.rail.m)} min` : ''}` : 'No stop mapped in OSM within 1.3 km', ev: [`${c.id}:osmwalk`] },
     { id: 'outdoor', label: 'Outdoor space', value: outdoorValue, weight: W.outdoor, note: c.lotOutdoorSqft ? `${sqft(c.lotOutdoorSqft)} yard` : m.park ? `${m.park.name ?? 'Park'}, ${walkMin(m.park.m)} min walk` : 'None nearby', ev: [`${c.id}:aerial`, `${c.id}:osmwalk`] },
     { id: 'cost', label: 'Budget left', value: clamp((req.budget - cost) / req.budget / 0.6), weight: W.cost, note: `${k(cost)} of ${k(req.budget)}`, ev: ['A3'] },
     { id: 'zoning', label: 'Zoning', value: zone === 'allowed' ? 1 : zone === 'conditional' ? 0.45 : zone === 'not allowed' ? 0 : 0.8, weight: W.zoning, note: zone ? `${c.zone}: ${zone}` : 'No zoning ordinance; deed restrictions unchecked', ev: zone ? ['Z1'] : ['Z2'] },
@@ -193,7 +193,8 @@ function evaluateOne(c: Candidate, req: Request): Omit<Result, 'conflicts'> {
 // design, or move to a building that passes that rule.
 function conflictsFor(r: Omit<Result, 'conflicts'>, all: Omit<Result, 'conflicts'>[], req: Request): Conflict[] {
   const f = FACILITIES[req.facility]
-  const alt = (id: string) => all.filter((o) => o !== r && o.status === 'pass').sort((a, b) => b.score - a.score)[0] ?? all.find((o) => o !== r && o.checks.find((c) => c.id === id)?.pass)
+  // Only ever suggest a building that passes every rule.
+  const alt = (_id: string) => all.filter((o) => o !== r && o.status === 'pass').sort((a, b) => b.score - a.score)[0]
   const name = (o?: Omit<Result, 'conflicts'>) => (o ? o.property.name : null)
   const out: Conflict[] = []
   for (const c of r.checks.filter((x) => !x.pass)) {

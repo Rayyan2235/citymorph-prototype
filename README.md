@@ -1,8 +1,10 @@
-# CityMorph prototype
+# CityMorph 2.0
 
-CityMorph finds existing commercial buildings that could become the services a neighborhood needs, checks them against hard rules in code, and morphs the best one into a concept plan that replans when the budget changes.
+CityMorph finds existing buildings that could become the services a neighborhood needs. It checks every candidate against hard rules in code, ranks the ones that pass with an explainable score, morphs the best one into a concept floorplan in a Transformation Studio, and simulates how the new facility changes walking access across the real street network.
 
-> **Sample records.** Every property, scan finding and cost here is a labelled sample standing in for the CoStar, Matterport and Vexcel APIs. The aerial thumbnails are Esri World Imagery, labelled as a Vexcel stand-in. Nothing is presented as a live integration.
+> **What is real and what is simulated.**
+> **Real public data:** building footprints, streets, footpaths, transit stops, parks and existing facilities (OpenStreetMap, via Overpass), and tract population and children under 5 (US Census ACS 5-year, via Census Reporter). This data is fetched by `scripts/fetch-geo.mjs` and baked into the repo.
+> **Simulated, and labelled in the UI:** listings, vacancy, use, storeys where OSM has none, interiors and doors, yards, LA zone readings, costs and every planning ratio. Nothing is presented as a live CoStar, Matterport or Vexcel result. Every number cites its source in the evidence trail.
 
 ## Run
 
@@ -11,44 +13,55 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173. For the judge laptop, `npm run build` then `npx vite preview --port 5179`.
+Open http://localhost:5173. For the judge laptop, run `npm run build`, then `npx vite preview --port 5179`.
 
 | URL | What it does |
 | --- | --- |
-| `/` | Step 1. Press **Find buildings**, then the button in the bottom dock (or the right arrow key). |
-| `/?demo=auto` | Plays all five steps hands free, including the budget cut to $90k. Use it as the fallback if a live click fails. `?demo=run` and `?demo=cut` do the same. |
+| `/` | Step 1. Edit the need sentence, then press the dock button (or the right arrow key). |
+| `/?demo=auto` | Plays the whole journey hands free: Find, Check, Studio, a budget cut that rejects the leader, then the impact simulation. |
 
-## The journey (about 90 seconds)
+## The journey
 
-The bottom dock shows where you are and the one thing to do next.
+1. **Need.** A fill-in sentence whose blanks are real controls: facility type (learning center, childcare center, pediatric clinic), capacity and budget. A city switch (Houston, Los Angeles) and an address search (OpenStreetMap Nominatim) sit in the top bar.
+2. **Find.** Five candidates per city drop onto the 3D map as their real OSM footprints, extruded by storey. Click any other building and CityMorph explains why it is not a candidate.
+3. **Check.** The Inspector checks the candidates one at a time against 4 to 6 hard rules: step free entry, fits the program, one level, budget, plus zoning (LA) and outdoor play (childcare, or when a playground is requested). A building that fails is stamped Rejected, and the log says "rejected → checking the next one". The passing buildings are then ranked by a 7-part score: room to grow, accessibility, transit access (walked on OSM streets), outdoor space, budget left, zoning and readiness. Open any row for the score breakdown, or tick two rows to compare them side by side.
+4. **Studio.** An isometric digital twin of the chosen building, drawn to its real footprint. The old interior sinks away, the generated rooms slide in, new walls rise in orange, and people walk in through the step free door. You can:
+   - click a room for its purpose and notes, and scroll or drag to zoom and pan;
+   - switch the facility type or the layout option;
+   - change capacity, the outdoor playground, wheelchair access first, and the budget.
 
-1. **Need.** A fill in sentence: a learning center for 40 people, 2 activity rooms, step free entry, under $150k. The blanks are the rules.
-2. **Find.** Three buildings drop onto the 3D Houston map with their estimated cost on the pin. The panel lists them with aerial thumbnails.
-3. **Check.** The same rows become a 4 rule grid. Fulton St fails step free entry (3 steps, no ramp) and one level; its pin goes flat and says why.
-4. **Morph.** The camera flies to Bellaire Blvd and lifts the real building in orange. Beside it, an isometric cutaway turns the retail floor into reception, two activity rooms, storage and a staff office, then 40 people walk in through the step free door and sit. Drag Today / Proposed to scrub it.
-5. **Replan.** Drag the budget to $90k. The cost bar shows Bellaire's core work ($110k) crossing the budget line, the plan is stamped Over budget, the ranking reorders, the camera flies to Navigation Blvd and the morph replays there at about $51k.
+   Every change regenerates the plan, the work list and the economics. If the building now fails a rule, it is stamped, and the next best building takes over. Conflicts come with one-click fixes.
+5. **Impact.** Press Simulate impact. The network lights up outward from the site. Streets whose nearest facility of this type got closer turn orange, and the dashed outline is the 10-minute walk catchment. Walking routes are traced from the nearest transit stops. The panel estimates residents (or children under 5) served, capacity, the change in street coverage, minutes saved, and reuse versus new construction in cost and months.
 
-The ticker at the top shows one line at a time, each computed from the evaluator. Source icons (You, CoStar record, Interior scan, Aerial, Assumption) open the evidence trail.
+The agent log (Translator, Scout, Inspector, Ranker, Planner, Economist, Simulator) narrates each step. Every line is computed from the evaluator; no language model runs in this prototype.
 
 ## How it decides
 
-`src/logic/evaluate.ts` is deterministic. Four hard rules (step free entry, room for the program, one level, core work within budget) decide pass or fail. The fit score is 35% space, 25% budget left, 20% room fit, 20% evidence confidence. Ticker lines and the "what changed" note are generated from those results, not scripted.
+| File | Role |
+| --- | --- |
+| `src/data/config.ts` | One source of truth for every planning number: cities, facility room programs, unit costs, score weights and impact assumptions. Each one cites an evidence id. |
+| `src/data/candidates.ts` | Sample property records, merged with the real OSM footprint, the walking metrics and the Census tract. |
+| `src/logic/layout.ts` | Generates the floorplan inside a box with the footprint's real proportions and area. Bands of rooms sit on either side of a corridor. A building much bigger than the program gets a right-sized block by the door plus spare space. It computes walls kept, removed and added. |
+| `src/logic/costs.ts` | The work list. Quantities come from the plan (feet of wall, rooms, doors); unit costs come from config. |
+| `src/logic/evaluate.ts` | Deterministic rules, the score, conflicts with suggested fixes, and the largest capacity each building can hold. |
+| `src/logic/geo.ts`, `src/logic/impact.ts` | Footprint geometry, Dijkstra on the walking network, catchment, before/after access to the nearest existing facility, and transit routes. |
+
+## Refreshing the real data
+
+```
+node scripts/fetch-geo.mjs        # OSM + Census for each site (slow when Overpass is busy)
+node scripts/derive-geo.ts        # walking metrics per site
+npx tsx scripts/calibrate.ts      # print what the evaluator decides per city and facility
+```
+
+The fetch avoids named or business-tagged buildings, so no real business gets a simulated "for lease" label.
 
 ## Design
 
-Kiln token structure, with this project's own type and palette (agreed with the planner sessions after studying Linear, Vercel, Raycast, Cursor and Arcol): Inter Tight 600 for display, Inter for UI, Geist Mono for labels; paper `#F7F2E7`, ink `#171717`, one accent `#D4501E`. Failure is ink strikethrough and muted, never red. Radius 4px for controls, 8px for cards, 999px for chips; one shadow, a hard 4px paper offset, only on floating panels over the map.
+The Kiln token structure, with this project's own type and palette: Inter Tight 600 for display, Inter for UI, Geist Mono for labels; paper `#F7F2E7`, ink `#171717`, and one accent `#D4501E`. Orange only marks what changed: the chosen building, new walls, a new exit, a replanned price, streets made closer. Failure is ink, never red. A hard 4px paper offset shadow appears only on panels floating over the map.
 
-New components (candidates for Kiln):
-
-- **Journey** (`src/components/Journey.tsx`). Bottom dock: numbered stepper with a sliding active pill, Back, and a primary button that names the next step.
-- **IsoPlan** (`src/components/IsoPlan.tsx`). Isometric cutaway driven by one progress value: fixtures sink, old walls lower, zones slide, new walls rise in the accent, people walk in and sit. Takes existing rooms, fixtures, zones and entrances. Always labelled concept, areas estimated.
-- **Shortlist** (`src/components/Shortlist.tsx`). Building rows with aerial thumbnails that turn into a rule grid with staggered check and cross cells and a "why it failed" line. The grid header shows which sample sources each rule read (You, CoStar, Scan, Assumed). The edges come from each check's evidence ids. At rest, only the wires behind a failure are drawn, in ink, and those pulse once when the failing cell is checked. Hover a source or a rule to see the rest of its wires.
-- **Beam** (`src/components/Beam.tsx`). Port of Magic UI's Animated Beam (MIT). It measures two elements in a container and draws a path between them, with a straight-down S-curve option. Kiln change: no gradient. The pulse is a solid dash fired once per real event.
-- **IsoPlan drafting paper**. Dot grid, and the listing's gross area written along the slab edge. There are no FT dimensions, because the room proportions are a concept and not a measurement.
-- **CostBar / ReplanPanel** (`src/components/Replan.tsx`). Stacked work bar against a live budget line; core work over the line is hatched. Ranking reorders with layout animation.
-- **Cite** (`src/components/Cite.tsx`). Source as an icon chip with a hover card; assumptions dashed.
-- **MapStage** (`src/components/MapStage.tsx`). MapLibre repainted from tokens, 3D buildings, pill pins with rank, name and cost, and the chosen building lifted in the accent.
+New components: Studio, ImpactPanel, AgentLog, SearchBox, ComparePanel and ScoreBars, plus IsoPlan (now with hotspots, zoom and pan, yard, exits and the accessible route), Shortlist, Beam (a port of Magic UI's Animated Beam, MIT, with no gradient), CostBar and WorkList, Cite, MapStage and Journey.
 
 ## Credits
 
-Map data © OpenStreetMap contributors, tiles by OpenFreeMap and OpenMapTiles. Aerial imagery © Esri, Maxar, Earthstar Geographics. Fonts: Inter, Inter Tight, Geist Mono (SIL OFL 1.1). Number Flow by Maxwell Barvian (MIT). Patterns studied (captured and inspected with rea): Giraffe (line drawn isometric city, struck through dropped deals, hard offset paper shadow), Rayon (CAD axis bubbles and dimension lines), Archistar and UpCodes (rule check results), Magic UI Animated Beam (source wiring), Arcol and TestFit (metrics that follow the geometry), Felt (paper map), Rivian configurator (preview updates per step), Cursor (plan lines), Linear (product UI as the hero), Origin UI stepper and Dice UI compare slider on 21st.dev.
+Map data © OpenStreetMap contributors (ODbL), via Overpass and Nominatim. Tiles by OpenFreeMap and OpenMapTiles. Population data from US Census ACS 5-year, via Census Reporter. Aerial thumbnails © Esri, Maxar, Earthstar Geographics, labelled as a Vexcel stand-in. Fonts: Inter, Inter Tight, Geist Mono (SIL OFL 1.1). Number Flow by Maxwell Barvian (MIT). Patterns studied with rea: Giraffe, Rayon, Archistar, UpCodes, Magic UI, Arcol, TestFit, Felt and Placer.ai.
