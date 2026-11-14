@@ -339,6 +339,12 @@ export function IsoPlan({ property: p, people, playKey, over = false, onT, scrub
           })}
       </svg>
       {corner && <div className="iso-count">{corner}</div>}
+      {/* When the plan adds no partitions, say so: it is why this one costs less. */}
+      {geo.added.length === 0 && labelT > 0 && (
+        <span className="mono-label iso-note" style={{ opacity: labelT }}>
+          No new walls · existing walls reused
+        </span>
+      )}
       {over && (
         <div className="iso-stamp" role="status">
           Over budget

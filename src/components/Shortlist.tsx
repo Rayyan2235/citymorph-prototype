@@ -52,7 +52,7 @@ function reasonFor(r: Result, passes: Result[]) {
   const other = i === 0 ? passes[1] : passes[0]
   const cost = Math.round((other.cost - r.cost) / 1000)
   const money = cost > 0 ? `$${cost}k cheaper` : cost < 0 ? `$${-cost}k more work` : 'same cost'
-  return `Room for ~${roomFor(r)} by the planning ratio, #${i === 0 ? 2 : 1} ~${roomFor(other)} · ${money}`
+  return `Room for ~${roomFor(r)} at an assumed ${PLANNING.sqftPerPerson} sq ft per person, #${i === 0 ? 2 : 1} ~${roomFor(other)} · ${money}`
 }
 
 // Which source kinds each rule actually read, taken from the evaluator's
@@ -157,7 +157,7 @@ export function Shortlist({ results, shown, mode, selected, onSelect }: Props) {
           const p = r.property
           const pass = r.status === 'pass'
           if (pass) rank += 1
-          const fail = r.checks.find((c) => !c.pass)
+          const fails = r.checks.filter((c) => !c.pass)
           return (
             <motion.li
               key={p.id}
@@ -185,17 +185,27 @@ export function Shortlist({ results, shown, mode, selected, onSelect }: Props) {
                 {mode === 'check' &&
                   RULES.map((rule, j) => {
                     const c = r.checks.find((x) => x.id === rule.id)!
+                    // A dash holds the slot until the cell is checked, so a
+                    // half-run grid never looks empty or broken.
                     return (
-                      <motion.span
-                        key={rule.id}
-                        className={`sl-cell${c.pass ? ' is-pass' : ' is-fail'}`}
-                        initial={{ opacity: 0, scale: 0.6 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: cellAt(i, j), duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                        title={`${rule.label}: ${c.observed}`}
-                      >
-                        {c.pass ? <Check size={15} strokeWidth={2.2} aria-label="passes" /> : <X size={15} strokeWidth={2.2} aria-label="fails" />}
-                      </motion.span>
+                      <span key={rule.id} className="sl-slot">
+                        <motion.span
+                          className="sl-dash"
+                          aria-hidden="true"
+                          initial={{ opacity: 1 }}
+                          animate={{ opacity: 0 }}
+                          transition={{ delay: cellAt(i, j), duration: 0.12 }}
+                        />
+                        <motion.span
+                          className={`sl-cell${c.pass ? ' is-pass' : ' is-fail'}`}
+                          initial={{ opacity: 0, scale: 0.6 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: cellAt(i, j), duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                          title={`${rule.label}: ${c.observed}`}
+                        >
+                          {c.pass ? <Check size={15} strokeWidth={2.2} aria-label="passes" /> : <X size={15} strokeWidth={2.2} aria-label="fails" />}
+                        </motion.span>
+                      </span>
                     )
                   })}
                 {mode === 'check' && (
@@ -226,17 +236,20 @@ export function Shortlist({ results, shown, mode, selected, onSelect }: Props) {
                   {reasonFor(r, passes)}
                 </motion.p>
               )}
-              {mode === 'check' && fail && (
-                <motion.p
-                  className="sl-why"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  transition={{ delay: cellAt(i, 4) + 0.05, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                >
-                  <span className="mono-label">{fail.fail}</span> {fail.observed}
-                  <Cites ids={fail.ev.filter((e) => !e.startsWith('U'))} />
-                </motion.p>
-              )}
+              {/* one line per failed rule, so every ink wire points at a reason */}
+              {mode === 'check' &&
+                fails.map((f, k) => (
+                  <motion.p
+                    key={f.id}
+                    className="sl-why"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    transition={{ delay: cellAt(i, 4) + 0.05 + k * 0.15, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <span className="mono-label">{f.fail}</span> {f.observed}
+                    <Cites ids={f.ev.filter((e) => !e.startsWith('U'))} />
+                  </motion.p>
+                ))}
             </motion.li>
           )
         })}

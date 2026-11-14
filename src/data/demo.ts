@@ -212,7 +212,7 @@ export function userEvidence(people: number, budget: number): Evidence[] {
 }
 
 export const EVIDENCE: Evidence[] = [
-  { id: 'A1', kind: 'assumption', claim: '35 sq ft per person, plus 500 sq ft for support space', detail: 'A planning ratio for sketching rooms. Not a legal occupancy limit.', confidence: 'assumed', verify: true },
+  { id: 'A1', kind: 'assumption', claim: '35 sq ft per person, plus 500 sq ft for support space', detail: 'Our assumption for sketching rooms, not taken from a building code or study. Not a legal occupancy limit. Replace with the architect\'s ratio.', confidence: 'assumed', verify: true },
   { id: 'A2', kind: 'assumption', claim: 'About 70% of gross area is usable', detail: 'Walls, columns and service space take the rest. Confirm on a measured plan.', confidence: 'assumed', verify: true },
   { id: 'A3', kind: 'assumption', claim: 'Costs are planning ranges of plus or minus 20%, not quotes', detail: 'Get contractor quotes before committing.', confidence: 'assumed', verify: true },
   { id: 'A4', kind: 'assumption', claim: 'Retail to adult training is a change of use', detail: 'Usually triggers a restroom and exit review. Adult training in an office stays the same use. Confirm with the City of Houston permitting office.', confidence: 'assumed', verify: true },

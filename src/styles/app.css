@@ -563,6 +563,18 @@ p {
   font-size: var(--t-13);
   text-align: right;
 }
+.sl-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.sl-dash {
+  position: absolute;
+  width: 10px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: var(--stone);
+}
 .sl-cell {
   justify-self: center;
   display: grid;
@@ -951,6 +963,16 @@ p {
 }
 .iso-was s {
   text-decoration-thickness: 1.5px;
+}
+.iso-note {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding: 3px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-control);
+  background: var(--paper-raised);
+  color: var(--ink-soft);
 }
 .iso-count-n {
   font-family: var(--font-display);
