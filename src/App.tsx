@@ -11,6 +11,7 @@ import { Shortlist } from './components/Shortlist'
 import { Journey, STEPS } from './components/Journey'
 import { ReplanPanel } from './components/Replan'
 import { AERIAL_CREDIT } from './components/AerialFrame'
+import { Hook } from './components/Hook'
 
 const PEOPLE = 40
 const START_BUDGET = 150000
@@ -258,6 +259,7 @@ export default function App() {
                   transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                   aria-label="What your neighborhood needs"
                 >
+                  <Hook />
                   <span className="mono-label need-kicker">Houston · what does the neighborhood need?</span>
                   <h1 className="need-line">
                     A <Blank i={0}>learning center</Blank> for <Blank i={1}>{PEOPLE} people</Blank>, with <Blank i={2}>2 activity rooms</Blank>, <Blank i={3}>step free</Blank> entry, under{' '}

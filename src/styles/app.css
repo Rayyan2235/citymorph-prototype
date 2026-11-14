@@ -276,6 +276,31 @@ p {
   height: fit-content;
   width: min(1040px, calc(100% - 48px));
 }
+.hook {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  max-width: 720px;
+  padding-bottom: var(--s-5);
+  margin-bottom: var(--s-5);
+  border-bottom: 1px solid var(--hairline);
+}
+.hook-stat {
+  font-size: var(--t-16);
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.hook-n {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--t-36);
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.hook-src {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
 .need-kicker {
   display: block;
   margin-bottom: var(--s-4);
