@@ -286,7 +286,9 @@ export function makeLayout(c: Candidate, facility: FacilityId, capacity: number,
   const occupants = (facility === 'clinic' ? Math.round(capacity / 4) : capacity) + staff
 
   // Exits: every door counts; a large occupant load gets a second exit.
-  if (occupants >= PLANNING.secondExitAt && entrances.length < 2) {
+  // Care homes always plan two step free exits; others add one at a high occupant load.
+  const stepFree = entrances.filter((e) => e.stepFree).length
+  if (facility === 'carehome' ? stepFree < 2 : occupants >= PLANNING.secondExitAt && entrances.length < 2) {
     entrances.push({ id: `${c.id}-exit2`, name: 'New second exit', stepFree: true, side: doorTop ? 'bottom' : 'top', t: doorFromRight ? 0.08 : 0.92, ev: 'A7', at: { x: doorFromRight ? box.x + 0.08 * box.w : box.x + 0.92 * box.w, y: doorTop ? box.y + box.h : box.y, side: doorTop ? 'bottom' : 'top' }, isNew: true })
   }
 

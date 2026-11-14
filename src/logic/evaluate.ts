@@ -1,10 +1,11 @@
 // Deterministic evaluator. Code decides pass, fail, rank and every warning;
 // no model is involved. Changing any input reruns this and changes the answer.
 
-import { CITIES, FACILITIES, PLANNING, SCORE_WEIGHTS, type CityId, type DesignOpts, type FacilityId } from '../data/config'
+import { CARE, CARE_WEIGHTS, CITIES, FACILITIES, PLANNING, SCORE_WEIGHTS, type CityId, type DesignOpts, type FacilityId } from '../data/config'
 import { byCity, type Candidate } from '../data/candidates'
 import { makeLayout, type Layout, type Variant } from './layout'
 import { fitBudget, workList, type Task } from './costs'
+import { defaultNightStaff, evacuate, type Evac } from './evacuation'
 
 export interface Request {
   city: CityId
@@ -15,7 +16,7 @@ export interface Request {
   variant: Variant
 }
 
-export type CheckId = 'access' | 'space' | 'level' | 'budget' | 'zoning' | 'outdoor'
+export type CheckId = 'access' | 'space' | 'level' | 'budget' | 'zoning' | 'outdoor' | 'flood' | 'power'
 
 export interface Check {
   id: CheckId
@@ -27,7 +28,7 @@ export interface Check {
   ev: string[]
 }
 
-export type CriterionId = keyof typeof SCORE_WEIGHTS
+export type CriterionId = keyof typeof SCORE_WEIGHTS | keyof typeof CARE_WEIGHTS
 
 export interface Criterion {
   id: CriterionId
@@ -60,6 +61,7 @@ export interface Result {
   conflicts: Conflict[]
   maxCapacity: number
   conditional: boolean
+  evac: Evac | null // night evacuation, old age homes only
 }
 
 export const k = (n: number) => `$${Math.round(n / 1000)}k`
@@ -145,6 +147,29 @@ function evaluateOne(c: Candidate, req: Request): Omit<Result, 'conflicts'> {
       ev: [`${c.id}:aerial`, 'A8', `${c.id}:osmwalk`],
     })
 
+  const care = req.facility === 'carehome'
+  if (care) {
+    const fz = c.flood.zone
+    checks.push({
+      id: 'flood',
+      label: 'Outside the 100-year floodplain',
+      fail: 'In the 100-year floodplain',
+      pass: fz !== '100',
+      required: 'Building outside the FEMA 100-year flood zone',
+      observed: fz === '100' ? `FEMA zone ${c.flood.fldZone}` : fz === '500' ? 'In the 500-year zone (0.2% a year)' : fz === 'minimal' ? `Minimal flood hazard (zone ${c.flood.fldZone ?? 'X'})` : 'Not mapped by FEMA',
+      ev: [`${c.id}:fema`],
+    })
+    const hasPower = c.generator === 'full' || req.opts.generator
+    checks.push({
+      id: 'power',
+      label: 'Backup cooling',
+      fail: 'No backup cooling',
+      pass: hasPower,
+      required: 'Backup power that runs cooling and heating, so residents can stay in a blackout',
+      observed: c.generator === 'full' ? 'Existing generator runs cooling' : req.opts.generator ? (c.generator === 'life' ? 'Generator upgrade in the plan' : 'New generator in the plan') : c.generator === 'life' ? 'Generator runs lights and alarms only' : 'No generator',
+      ev: [`${c.id}:scan`, 'C4'],
+    })
+  }
   const pass = checks.every((x) => x.pass)
   const m = c.metrics
   const stopM = m.stop?.m ?? 2000
@@ -176,7 +201,7 @@ function evaluateOne(c: Candidate, req: Request): Omit<Result, 'conflicts'> {
   }
 
   const W = SCORE_WEIGHTS
-  const raw: Omit<Criterion, 'points'>[] = [
+  let raw: Omit<Criterion, 'points'>[] = [
     // Spare capacity: full marks at 2.5 times what you asked for, zero when it only just fits.
     { id: 'space', label: 'Room to grow', value: plan.squeeze < 1 ? 0 : clamp((maxCapacity / req.capacity - 1) / 1.5), weight: W.space, note: plan.squeeze < 1 ? `Rooms squeezed to ${Math.round(plan.squeeze * 100)}%` : maxCapacity > req.capacity ? `Fits up to ${maxCapacity}${maxCapacity >= f.capacity.max ? '+' : ''}; you asked for ${req.capacity}` : `Only just fits ${req.capacity}`, ev: ['P1', f.ratioEv] },
     { id: 'access', label: 'Accessibility', value: door ? clamp(0.6 + (door.lip ? 0 : 0.2) + (plan.entrances.filter((e) => !e.isNew).length > 1 ? 0.2 : 0)) : 0, weight: W.access, note: door ? `${door.name}${plan.entrances.length > 1 ? `, ${plan.entrances.length} exits` : ''}` : 'Steps at every door', ev: [`${c.id}:scan`] },
@@ -187,10 +212,31 @@ function evaluateOne(c: Candidate, req: Request): Omit<Result, 'conflicts'> {
     { id: 'evidence', label: 'Ready and known', value: clamp(c.confidence * (c.vacant ? 1 : 0.7)), weight: W.evidence, note: c.vacancy, ev: [`${c.id}:listing`] },
   ]
   // Points per item are rounded first, so the card's points add up to the fit score exactly.
+  // Old age homes are scored on surviving a disaster, not on transit or zoning.
+  const staff = req.opts.nightStaff || defaultNightStaff(req.capacity)
+  const evac = care ? evacuate(plan, req.capacity, staff) : null
+  if (care && evac) {
+    const fl = m.flood
+    const to100 = fl?.to100 ?? null
+    const to500 = fl?.to500 ?? null
+    const out = fl?.routeOut ?? { normal: null, z100: null, z500: null }
+    const C = CARE_WEIGHTS
+    const km = (n: number) => `${(n / 1000).toFixed(1)} km`
+    const h = m.hospital
+    raw = [
+      { id: 'flood', label: 'Flood exposure', value: c.flood.zone === '100' ? 0 : clamp((to100 ?? CARE.floodSafeM) / CARE.floodSafeM) * 0.85 + (c.flood.zone === '500' || to500 === 0 ? 0 : 0.15), weight: C.flood, note: to100 === null ? 'No FEMA 100-year zone within 1.3 km' : to100 === 0 ? 'Inside the 100-year zone' : `${to100} m from the 100-year zone${to500 === 0 ? ', inside the 500-year zone' : to500 !== null ? `, ${to500} m from the 500-year zone` : ''}`, ev: [`${c.id}:fema`] },
+      { id: 'route', label: 'Road out in a flood', value: out.z500 && out.normal ? clamp(1 - (out.z500 / out.normal - 1)) : out.z100 && out.normal ? 0.4 * clamp(1 - (out.z100 / out.normal - 1)) : 0, weight: C.route, note: out.z500 && out.normal ? `${km(out.z500)} out in a 500-year flood, normally ${km(out.normal)}` : out.z100 ? `Cut off in a 500-year flood; ${km(out.z100)} out in a 100-year flood` : 'Cut off by a 100-year flood', ev: [`${c.id}:fema`, `${c.id}:osmwalk`] },
+      { id: 'evac', label: 'Night evacuation', value: clamp((CARE.badMin - evac.minutes) / (CARE.badMin - CARE.goodMin)), weight: C.evac, note: `${evac.minutes} min with ${evac.staff} night staff; ${evac.assisted} of ${evac.residents} need help`, ev: ['C1', 'C2', 'C3', 'P1'] },
+      { id: 'power', label: 'Backup cooling', value: c.generator === 'full' ? 1 : req.opts.generator ? 0.7 : 0, weight: C.power, note: c.generator === 'full' ? 'Existing generator runs cooling' : req.opts.generator ? 'Added in the plan' : 'None', ev: [`${c.id}:scan`, 'C4'] },
+      { id: 'access', label: 'Step free exits', value: door ? clamp(0.5 + (door.lip ? 0 : 0.2) + (evac.exits > 1 ? 0.3 : 0)) : 0, weight: C.access, note: `${evac.exits} step free exit${evac.exits === 1 ? '' : 's'}; furthest bed ${evac.farFt} ft from one`, ev: [`${c.id}:scan`, 'P1'] },
+      { id: 'hospital', label: 'Hospital nearby', value: h ? clamp((CARE.hospitalBadM - h.m) / (CARE.hospitalBadM - CARE.hospitalGoodM)) : 0, weight: C.hospital, note: h ? `${h.name ?? 'Hospital'}, ${km(h.m)} straight line` : 'No hospital mapped within 2.6 km', ev: [`${c.id}:osmwalk`] },
+      { id: 'cost', label: 'Budget left', value: clamp((req.budget - cost) / req.budget / 0.6), weight: C.cost, note: `${k(cost)} of ${k(req.budget)}`, ev: ['A3'] },
+    ]
+  }
   const criteria: Criterion[] = raw.map((x) => ({ ...x, points: Math.round(x.value * x.weight * 100) }))
   const score = pass ? criteria.reduce((t, x) => t + x.points, 0) : 0
 
-  return { property: c, status: pass ? 'pass' : 'fail', score, criteria, checks, plan, tasks, selected, dropped, cost, coreCost, maxCapacity, conditional }
+  return { property: c, status: pass ? 'pass' : 'fail', score, criteria, checks, plan, tasks, selected, dropped, cost, coreCost, maxCapacity, conditional, evac }
 }
 
 // Conflicts explain each failed rule and suggest the nearest fix: change the
@@ -227,6 +273,12 @@ function conflictsFor(r: Omit<Result, 'conflicts'>, all: Omit<Result, 'conflicts
         suggest: f.needsOutdoor ? (o ? `Try ${name(o)}, or lower capacity.` : 'Lower capacity.') : 'Turn off the outdoor playground, or choose a building with a yard.',
       })
   }
+  for (const c of r.checks.filter((x) => !x.pass)) {
+    const o = alt(c.id)
+    if (c.id === 'flood') out.push({ check: 'flood', text: `The building sits in the FEMA 100-year floodplain (${c.observed}). Residents who cannot walk would need rescue by boat.`, suggest: o ? `Choose ${name(o)}, outside the floodplain.` : 'Look for a building outside the floodplain.' })
+    if (c.id === 'power') out.push({ check: 'power', text: 'Without backup cooling, residents cannot stay through a summer blackout, and evacuating frail residents carries its own risk.', suggest: 'Turn on "Add backup cooling" to include a generator in the plan.' })
+  }
+  if (r.evac && r.evac.minutes > CARE.badMin * 0.75) out.push({ check: 'warn', text: `Night evacuation takes about ${r.evac.minutes} minutes with ${r.evac.staff} staff.`, suggest: `One more night staff member brings it to about ${Math.round(CARE.alarmMin + ((r.evac.minutes - CARE.alarmMin) * r.evac.staff) / (r.evac.staff + 1))} minutes.` })
   if (r.conditional) out.push({ check: 'warn', text: `Zone ${r.property.zone} needs a conditional use permit: about 4 more months and $15k.`, suggest: null })
   if (r.status === 'pass' && r.plan.squeeze < 1) out.push({ check: 'warn', text: `Rooms are squeezed to ${Math.round(r.plan.squeeze * 100)}% of the program size.`, suggest: `Lower capacity to ${r.maxCapacity} for full-size rooms.` })
   if (r.status === 'pass' && r.plan.entrances.some((e) => e.isNew)) out.push({ check: 'warn', text: `${r.plan.occupants} occupants need a second exit; one is added to the plan.`, suggest: null })
@@ -251,3 +303,41 @@ export function cityName(id: CityId) {
 }
 
 export { k as thousands }
+
+export interface BudgetStep {
+  id: string
+  name: string
+  budget: number
+  extra: number
+  gain: number
+  from: { name: string; score: number; evac: number | null } | null
+  to: { score: number; evac: number | null }
+  reasons: string[]
+}
+
+export function budgetStep(req: Request, results: Result[], stretch = 0.15): BudgetStep | null {
+  const best = results.find((r) => r.status === 'pass') ?? null
+  let pick: BudgetStep | null = null
+  for (const r of results) {
+    if (r.status === 'pass') continue
+    const onlyBudget = r.checks.every((c) => c.pass || c.id === 'budget')
+    if (!onlyBudget || r.coreCost > req.budget * (1 + stretch)) continue
+    const nb = Math.ceil(r.coreCost / 5000) * 5000
+    const again = evaluate({ ...req, budget: nb }).find((x) => x.property.id === r.property.id)
+    if (!again || again.status !== 'pass') continue
+    const base = best ? evaluate({ ...req, budget: nb }).find((x) => x.property.id === best.property.id) : null
+    const gain = again.score - (base?.score ?? 0)
+    if (gain < 4) continue
+    const reasons = base
+      ? again.criteria
+          .map((c) => ({ c, d: c.points - (base.criteria.find((x) => x.id === c.id)?.points ?? 0) }))
+          .filter((x) => x.d >= 2 && x.c.id !== 'cost')
+          .sort((a, b) => b.d - a.d)
+          .slice(0, 3)
+          .map((x) => `${x.c.label.toLowerCase()}: ${x.c.note.charAt(0).toLowerCase()}${x.c.note.slice(1)}`)
+      : ['it is the only building that passes every other rule']
+    if (!pick || gain / (nb - req.budget) > pick.gain / pick.extra)
+      pick = { id: r.property.id, name: r.property.name, budget: nb, extra: nb - req.budget, gain, from: best ? { name: best.property.name, score: best.score, evac: best.evac?.minutes ?? null } : null, to: { score: again.score, evac: again.evac?.minutes ?? null }, reasons }
+  }
+  return pick
+}

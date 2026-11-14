@@ -2,8 +2,8 @@ import { motion } from 'motion/react'
 import type { Task } from '../logic/costs'
 import { Cites } from './Cite'
 
-export const BUDGET_MIN = 40000
-export const BUDGET_MAX = 260000
+export const BUDGET_MIN = 100000
+export const BUDGET_MAX = 900000
 const k = (n: number) => `$${Math.round(n / 1000)}k`
 
 // Work for one design as a stacked bar against the live budget line. Core

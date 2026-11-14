@@ -6,7 +6,7 @@
 import { CITIES, FACILITIES, PLANNING, type CityId, type FacilityId } from './config'
 import { CANDIDATES, type Candidate } from './candidates'
 
-export type SourceKind = 'user' | 'osm' | 'census' | 'costar' | 'matterport' | 'vexcel' | 'assumption'
+export type SourceKind = 'user' | 'osm' | 'census' | 'fema' | 'costar' | 'matterport' | 'vexcel' | 'assumption'
 
 export interface Evidence {
   id: string
@@ -22,13 +22,14 @@ export const SOURCE_LABEL: Record<SourceKind, string> = {
   user: 'You said',
   osm: 'OpenStreetMap',
   census: 'US Census',
+  fema: 'FEMA flood map',
   costar: 'Sample listing',
   matterport: 'Sample interior scan',
   vexcel: 'Sample aerial',
   assumption: 'Assumption',
 }
 
-export const KIND_ORDER: SourceKind[] = ['user', 'osm', 'census', 'costar', 'matterport', 'vexcel', 'assumption']
+export const KIND_ORDER: SourceKind[] = ['user', 'fema', 'osm', 'census', 'costar', 'matterport', 'vexcel', 'assumption']
 
 export function userEvidence(city: CityId, facility: FacilityId, capacity: number, budget: number, outdoor: boolean, accessFirst: boolean): Evidence[] {
   const f = FACILITIES[facility]
@@ -44,6 +45,11 @@ export function userEvidence(city: CityId, facility: FacilityId, capacity: numbe
 const pct = (n: number) => `${Math.round(n * 100)}%`
 
 export const ASSUMPTIONS: Evidence[] = [
+  { id: 'C1', kind: 'assumption', claim: '65% of residents cannot walk out unaided', detail: 'KFF, 2016 nursing home data: 65.3% of residents are chairbound (depend on a wheelchair or cannot walk without extensive help). Assisted living is lower; change it for your residents.', confidence: 'measured', verify: false },
+  { id: 'C2', kind: 'assumption', claim: 'Night staff default: 1 per 9 residents', detail: 'A GAO fire-safety report summary describes night staffing at best about 1 nursing staff per 9 residents; a CBC investigation found 1 per 10 to 1 per 15 overnight in some care homes. Enter your own night staff number.', confidence: 'assumed', verify: true },
+  { id: 'C3', kind: 'assumption', claim: 'Evacuation: 3 min alarm, 2.5 min to transfer each resident, wheelchair pushed at about 0.5 m/s', detail: 'No good public number exists for moving one non-walking resident. These are our planning figures; ask the fire marshal or your operator. Under 15 min scores full marks, 60 min or more scores zero.', confidence: 'assumed', verify: true },
+  { id: 'C4', kind: 'assumption', claim: 'Backup power must run cooling and heating', detail: 'After Hurricane Irma, residents died at Hollywood Hills when cooling failed; Florida then required generators. In Winter Storm Uri, Texas nursing homes that lost power had higher death rates, and backup power was not required to run HVAC. Generator costs are planning figures.', confidence: 'measured', verify: true },
+  { id: 'A11', kind: 'assumption', claim: 'Old age home bedrooms: two residents to a 240 sq ft room', detail: 'Planning figure for sketching rooms, about 110 sq ft per resident plus shared space. Licensing rules differ by state: confirm with Texas HHSC or California Community Care Licensing.', confidence: 'assumed', verify: true },
   { id: 'A1', kind: 'assumption', claim: 'Learning center rooms at 35 sq ft per person', detail: 'Our assumption for sketching rooms, not taken from a building code or study. Not a legal occupancy limit. Replace with the architect\'s ratio.', confidence: 'assumed', verify: true },
   { id: 'A5', kind: 'assumption', claim: 'Childcare: 35 sq ft indoors and 75 sq ft outdoors per child; 16 children per classroom', detail: 'Planning figures only. Licensing rules differ by state and age group: confirm with Texas HHSC or California Community Care Licensing.', confidence: 'assumed', verify: true },
   { id: 'A6', kind: 'assumption', claim: 'Clinic: one 110 sq ft exam room per 16 visits a day', detail: 'Planning ratio for sketching. Real clinics size by provider schedule.', confidence: 'assumed', verify: true },
@@ -63,7 +69,17 @@ export const ASSUMPTIONS: Evidence[] = [
 function siteEvidence(c: Candidate): Evidence[] {
   const t = c.tract
   const m = c.metrics
+  const fl = m.flood
   return [
+    {
+      id: `${c.id}:fema`,
+      kind: 'fema',
+      propertyId: c.id,
+      claim: c.flood.zone === '100' ? `In the FEMA 100-year flood zone (${c.flood.fldZone})` : c.flood.zone === '500' ? 'In the FEMA 500-year flood zone' : `FEMA zone ${c.flood.fldZone ?? 'X'}: minimal flood hazard at the building${fl?.to100 != null ? `; 100-year zone ${fl.to100} m away` : ''}`,
+      detail: `FEMA National Flood Hazard Layer, fetched Nov 14, 2026. Roads out are measured on the OSM street graph with every segment inside the zone removed.${t.over65 != null ? ` Tract: ${t.over65.toLocaleString('en-US')} people 65+, ${(t.over80 ?? 0).toLocaleString('en-US')} aged 80+.` : ''}`,
+      confidence: 'measured',
+      verify: false,
+    },
     { id: `${c.id}:osm`, kind: 'osm', propertyId: c.id, claim: `Footprint ${c.footprintSqft.toLocaleString('en-US')} sq ft, about ${c.long} by ${c.short} ft${c.floorsFrom === 'osm' ? `, ${c.floors} levels` : ''}`, detail: `OSM way ${c.osmId}. Measured from the mapped outline; OSM outlines can be off by a metre or two.`, confidence: 'measured', verify: false },
     { id: `${c.id}:osmwalk`, kind: 'osm', propertyId: c.id, claim: m.stop ? `Nearest stop ${m.stop.name ?? m.stop.kind}, ${m.stop.m} m walk; ${m.stopsIn10} stops within 10 minutes` : 'No transit stop within 1.3 km in OSM', detail: `Walking distances along OSM streets and paths.${m.park ? ` Nearest park: ${m.park.name ?? m.park.kind}, ${m.park.m} m.` : ''}`, confidence: 'measured', verify: false },
     { id: `${c.id}:tract`, kind: 'census', propertyId: c.id, claim: `${t.name}: ${t.pop.toLocaleString('en-US')} people, ${t.under5.toLocaleString('en-US')} under 5`, detail: `${t.source}. Tract land area ${(t.landM2 / 1e6).toFixed(2)} km².`, confidence: 'measured', verify: false },

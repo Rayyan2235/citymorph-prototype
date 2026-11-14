@@ -3,7 +3,7 @@
 // or verified data: they are labelled assumptions a planner would replace.
 
 export type CityId = 'houston' | 'la'
-export type FacilityId = 'learning' | 'childcare' | 'clinic'
+export type FacilityId = 'carehome' | 'learning' | 'childcare' | 'clinic'
 export type RoomRole = 'primary' | 'reception' | 'support' | 'wet' | 'flex' | 'hall'
 
 export interface City {
@@ -54,6 +54,8 @@ export interface RoomSpec {
 export interface DesignOpts {
   outdoorPlay: boolean
   accessFirst: boolean
+  generator: boolean // add backup power that runs cooling and heating where the building lacks it
+  nightStaff: number // staff on the night shift (care homes)
 }
 
 export interface Facility {
@@ -69,12 +71,34 @@ export interface Facility {
   occupancy: string // building-code occupancy group, for change-of-use checks
   newBuildPerSqft: number // new construction planning cost, evidence I1
   rooms: RoomSpec[]
-  servesTract: 'pop' | 'under5' // which tract count the impact simulator uses
+  servesTract: 'pop' | 'under5' | 'over65' // which tract count the impact simulator uses
 }
 
 const ceil = Math.ceil
 
 export const FACILITIES: Record<FacilityId, Facility> = {
+  carehome: {
+    id: 'carehome',
+    label: 'old age home',
+    noun: 'residents',
+    capacity: { default: 24, min: 8, max: 64, step: 4 },
+    budget: 500000,
+    sqftPerSeat: 110, // a resident needs about 110 sq ft of bedroom (two to a 240 sq ft room)
+    ratioEv: 'A11',
+    needsOutdoor: false,
+    outdoorPerSeat: 30,
+    occupancy: 'I-2 / R-4 (care home)',
+    newBuildPerSqft: 450,
+    servesTract: 'over65',
+    rooms: [
+      { key: 'rec', name: 'Entry and nurse station', role: 'reception', area: (c) => Math.max(260, c * 6), count: () => 1, purpose: 'Night nurse station by the step free door, with sightlines down the bedroom corridor.' },
+      { key: 'bed', name: 'Room', role: 'primary', area: () => 240, count: (c) => ceil(c / 2), seats: () => 2, purpose: 'Two residents. Beds reachable from both sides, wheelchair turning space, call button at each bed.' },
+      { key: 'day', name: 'Dining and day room', role: 'support', area: (c) => Math.max(320, c * 22), count: () => 1, purpose: 'Meals and activities. Doubles as the place residents gather when sheltering in place.' },
+      { key: 'shower', name: 'Accessible showers', role: 'wet', area: (c, o) => ceil(c / 8) * (o.accessFirst ? 110 : 90), count: () => 1, purpose: 'Roll-in showers with grab bars; one for every 8 residents.' },
+      { key: 'kit', name: 'Kitchen and laundry', role: 'wet', area: () => 220, count: () => 1, purpose: 'Meal prep and laundry. Not a full commercial kitchen.' },
+      { key: 'meds', name: 'Medicines and staff', role: 'support', area: () => 160, count: () => 1, purpose: 'Locked medicine room and staff break space.' },
+    ],
+  },
   learning: {
     id: 'learning',
     label: 'learning center',
@@ -188,4 +212,43 @@ export const IMPACT = {
   reuseMonthsBase: 3, // permits and design for a reuse project (I3)
   reuseMonthsPer100k: 2,
   newBuildMonths: 24, // land, design, permits and construction (I3)
+}
+
+// The facility types the UI offers right now. The other programs stay in the
+// code but are hidden while the prototype focuses on old age homes.
+export const ACTIVE_FACILITIES: FacilityId[] = ['carehome']
+
+// Old age home safety model. Every number names its evidence id.
+export const CARE = {
+  helpShare: 0.65, // share of residents who cannot walk out unaided (KFF 2016: 65.3% chairbound), C1
+  residentsPerNightStaff: 9, // night staffing, about 1 per 9 (GAO summary), C2
+  residentsPerDayStaff: 5, // day staffing, assumption C2
+  transferMin: 2.5, // wake, transfer to a wheelchair and start moving, per resident, assumption C3
+  pushFtPerMin: 98, // pushing a wheelchair at about 0.5 m/s, assumption C3
+  walkFtPerMin: 60, // a frail resident walking with guidance, assumption C3
+  alarmMin: 3, // alarm, wake staff, decide, assumption C3
+  goodMin: 15, // night evacuation at or under this scores full marks, C3
+  badMin: 60, // at or over this scores zero, C3
+  floodSafeM: 800, // 800 m or more from the 100-year zone counts as fully clear, F2
+  hospitalGoodM: 1500,
+  hospitalBadM: 6000,
+}
+
+export const CARE_COSTS = {
+  changeOfUse: 45000, // to a care occupancy: fire alarm, exits, licensing review, A4
+  sprinklerPerSqft: 5.5, // full sprinklers through the building, A3
+  nurseCallPerBed: 1200, // call button at each bed, A3
+  generatorHvac: 95000, // generator sized to run cooling and heating, A3
+  generatorUpgrade: 45000, // upgrade a life-safety-only generator to carry cooling, A3
+}
+
+// Old age home fit score. Weights add up to 1.
+export const CARE_WEIGHTS = {
+  flood: 0.2,
+  route: 0.15,
+  evac: 0.2,
+  power: 0.1,
+  access: 0.1,
+  hospital: 0.1,
+  cost: 0.15,
 }

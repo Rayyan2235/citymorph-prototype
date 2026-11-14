@@ -10,6 +10,7 @@ export interface SiteGeo {
   stops: { name: string | null; kind: string; lon: number; lat: number }[]
   parks: { name: string | null; kind: string; lon: number; lat: number; areaM2: number; ring: LngLat[] }[]
   facilities: Record<string, { name: string | null; kind: string; lon: number; lat: number }[]>
+  flood?: { z100: LngLat[][]; z500: LngLat[][] } // FEMA NFHL rings
 }
 
 const R = 6371008.8
@@ -218,4 +219,100 @@ export function siteMetrics(g: SiteGeo) {
     park: parks[0] ? { name: parks[0].name, kind: parks[0].kind, areaM2: parks[0].areaM2, m: Math.round(parks[0].m) } : null,
     nearestExisting: Object.fromEntries(Object.entries(facilities).map(([k, f]) => [k, f && Number.isFinite(f.m) ? { name: f.name, m: Math.round(f.m) } : null])),
   }
+}
+
+// ---------- flood scenarios (FEMA NFHL rings on the OSM street graph) ----------
+
+export type FloodScenario = 'z100' | 'z500'
+
+interface Ring {
+  pts: LngLat[]
+  box: [number, number, number, number]
+}
+
+export function rings(g: SiteGeo, scenario: FloodScenario): Ring[] {
+  const list = scenario === 'z100' ? (g.flood?.z100 ?? []) : [...(g.flood?.z100 ?? []), ...(g.flood?.z500 ?? [])]
+  return list.map((pts) => {
+    const xs = pts.map((p) => p[0])
+    const ys = pts.map((p) => p[1])
+    return { pts, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
+  })
+}
+
+// Even-odd point in polygon. FEMA holes come as separate rings, so a point
+// inside an odd number of rings is in the zone.
+export function inFlood(rs: Ring[], p: LngLat) {
+  let inside = false
+  for (const r of rs) {
+    if (p[0] < r.box[0] || p[0] > r.box[2] || p[1] < r.box[1] || p[1] > r.box[3]) continue
+    const pts = r.pts
+    let hit = false
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const [xi, yi] = pts[i]
+      const [xj, yj] = pts[j]
+      if (yi > p[1] !== yj > p[1] && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) hit = !hit
+    }
+    if (hit) inside = !inside
+  }
+  return inside
+}
+
+// Metres from a point to the nearest zone edge (0 when inside).
+export function distToFlood(rs: Ring[], p: LngLat) {
+  if (!rs.length) return null
+  if (inFlood(rs, p)) return 0
+  const o = p
+  let best = Infinity
+  for (const r of rs) {
+    const pts = r.pts
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, ay] = toLocal(o, pts[i])
+      const [bx, by] = toLocal(o, pts[i + 1])
+      const dx = bx - ax
+      const dy = by - ay
+      const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy || 1)))
+      best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy))
+    }
+  }
+  return Math.round(best)
+}
+
+export const EXIT_R = 1100 // metres: reaching this far from the site by road counts as leaving the area
+
+// Shortest road out of the area with flooded street segments removed. Returns
+// metres, the path and which edges were cut; null metres when cut off.
+export function routeOut(g: SiteGeo, site: LngLat, scenario: FloodScenario | null) {
+  const rs = scenario ? rings(g, scenario) : []
+  const wet = g.nodes.map((n) => (rs.length ? inFlood(rs, n) : false))
+  const cut = g.edges.map(([a, b]) => wet[a] || wet[b])
+  const adj: Graph['adj'] = g.nodes.map(() => [])
+  g.edges.forEach(([a, b, m], e) => {
+    if (cut[e]) return
+    adj[a].push({ to: b, m, e })
+    adj[b].push({ to: a, m, e })
+  })
+  const graph: Graph = { nodes: g.nodes, adj }
+  const doorWet = rs.length ? inFlood(rs, site) : false
+  const start = nearestNode(graph, site)
+  if (doorWet || start.node < 0) return { m: null, path: [] as LngLat[], cut, doorWet }
+  const { dist, prev } = dijkstra(graph, [{ node: start.node, start: start.gap }])
+  let best = -1
+  for (let i = 0; i < g.nodes.length; i++) if (Number.isFinite(dist[i]) && metres(site, g.nodes[i]) >= EXIT_R && (best < 0 || dist[i] < dist[best])) best = i
+  if (best < 0) return { m: null, path: [], cut, doorWet }
+  return { m: Math.round(dist[best]), path: [site, ...pathTo(prev, g.nodes, best).reverse()], cut, doorWet }
+}
+
+export function floodMetrics(g: SiteGeo, site: LngLat) {
+  return {
+    to100: distToFlood(rings(g, 'z100'), site),
+    to500: distToFlood(rings(g, 'z500'), site),
+    routeOut: { normal: routeOut(g, site, null).m, z100: routeOut(g, site, 'z100').m, z500: routeOut(g, site, 'z500').m },
+  }
+}
+
+export function nearestHospital(g: SiteGeo, site: LngLat) {
+  const list = (g.facilities.clinic ?? []).filter((f) => f.kind === 'hospital')
+  if (!list.length) return null
+  const best = list.map((h) => ({ name: h.name, m: Math.round(metres(site, [h.lon, h.lat])) })).sort((a, b) => a.m - b.m)[0]
+  return { ...best, walked: false }
 }

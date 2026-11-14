@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import NumberFlow from '@number-flow/react'
 import { AlertTriangle, ArrowRight, Minus, Plus, X } from 'lucide-react'
-import { FACILITIES, PLANNING, type FacilityId } from '../data/config'
-import type { Request, Result } from '../logic/evaluate'
+import { ACTIVE_FACILITIES, CARE, FACILITIES, PLANNING } from '../data/config'
+import { defaultNightStaff } from '../logic/evacuation'
+import type { BudgetStep, Request, Result } from '../logic/evaluate'
 import type { Variant } from '../logic/layout'
 import { IsoPlan, seatCount, seatedAt } from './IsoPlan'
 import { BUDGET_MAX, BUDGET_MIN, CostBar, WorkList } from './Replan'
-import { ScoreBars } from './Shortlist'
+import { BudgetStepCard, ScoreBars } from './Shortlist'
 import { Cites } from './Cite'
 import { AERIAL_CREDIT } from './AerialFrame'
 
@@ -26,9 +27,10 @@ interface Props {
   over: boolean
   was: { name: string; cost: number } | null
   note?: { agent: string; text: string; tone?: string } | null
+  stretch?: BudgetStep | null
 }
 
-export function Studio({ result, results, req, budget, setBudget, commitBudget, setReq, onSwitch, playKey, over, was, note }: Props) {
+export function Studio({ result, results, req, budget, setBudget, commitBudget, setReq, onSwitch, playKey, over, was, note, stretch }: Props) {
   const p = result.property
   const f = FACILITIES[req.facility]
   const plan = result.plan
@@ -48,6 +50,7 @@ export function Studio({ result, results, req, budget, setBudget, commitBudget, 
   const passes = results.filter((r) => r.status === 'pass')
   const bestOther = passes.find((r) => r.property.id !== p.id)
   const failed = result.checks.filter((c) => !c.pass)
+  const staff = req.opts.nightStaff || defaultNightStaff(req.capacity)
 
   // Fixes the user can apply in one click, computed from the evaluator.
   const actions: { label: string; run: () => void }[] = []
@@ -56,6 +59,8 @@ export function Studio({ result, results, req, budget, setBudget, commitBudget, 
     const nb = Math.ceil(result.coreCost / 5000) * 5000
     actions.push({ label: `Raise budget to ${k(nb)}`, run: () => (setBudget(nb), setReq({ budget: nb })) })
   }
+  if (failed.some((c) => c.id === 'power')) actions.push({ label: 'Add backup cooling', run: () => setReq({ opts: { generator: true } }) })
+  if (result.evac && result.evac.minutes > CARE.badMin * 0.75) actions.push({ label: `Add a night staff member (${staff + 1})`, run: () => setReq({ opts: { nightStaff: staff + 1 } }) })
   if (failed.some((c) => c.id === 'outdoor') && !f.needsOutdoor) actions.push({ label: 'Drop the playground', run: () => setReq({ opts: { outdoorPlay: false } }) })
   if (failed.length && bestOther) actions.push({ label: `Switch to ${bestOther.property.name}`, run: () => onSwitch(bestOther.property.id) })
 
@@ -63,9 +68,9 @@ export function Studio({ result, results, req, budget, setBudget, commitBudget, 
     const z = plan.zones.find((x) => x.id === id)!
     const notes: string[] = []
     if (z.kind === 'reception' && plan.door) notes.push(`Opens onto the ${plan.door.name.toLowerCase()}`)
-    if (z.kind === 'primary') notes.push('On the step free route from the door')
+    if (z.kind === 'primary') notes.push(req.facility === 'carehome' && result.evac ? `About ${Math.round(((Math.abs(z.to.y + z.to.h / 2 - (plan.hall.y + plan.hall.h / 2)) + Math.min(...plan.entrances.filter((e) => e.stepFree).map((e) => Math.abs(z.to.x + z.to.w / 2 - e.at.x) + Math.abs(plan.hall.y + plan.hall.h / 2 - e.at.y)))) * plan.scale) / 5) * 5} ft to the nearest step free exit` : 'On the step free route from the door')
     if (z.target && z.sqft < z.target * 0.95) notes.push(`Smaller than the ${z.target} sq ft the program asked for`)
-    if (z.seats) notes.push(`${z.seats} ${req.facility === 'clinic' ? 'people at a time' : f.noun}`)
+    if (z.seats) notes.push(`${z.seats} ${req.facility === 'clinic' ? 'people at a time' : f.noun}${req.facility === 'carehome' ? `; ${Math.round(z.seats * CARE.helpShare * 10) / 10} on average need help to leave` : ''}`)
     return notes
   }
 
@@ -83,13 +88,15 @@ export function Studio({ result, results, req, budget, setBudget, commitBudget, 
             </motion.span>
           )}
         </div>
+        {ACTIVE_FACILITIES.length > 1 && (
         <div className="st-tabs" role="tablist" aria-label="Facility type">
-          {(Object.keys(FACILITIES) as FacilityId[]).map((id) => (
+          {ACTIVE_FACILITIES.map((id) => (
             <button key={id} type="button" role="tab" aria-selected={req.facility === id} className={`seg${req.facility === id ? ' is-on' : ''}`} onClick={() => setReq({ facility: id, capacity: FACILITIES[id].capacity.default, budget: FACILITIES[id].budget })}>
               {FACILITIES[id].label}
             </button>
           ))}
         </div>
+        )}
       </header>
 
       <div className="st-body">
@@ -129,6 +136,11 @@ export function Studio({ result, results, req, budget, setBudget, commitBudget, 
                 <span className="mono-label" aria-live="polite">
                   Est. work · {seatedAt(t, people)} of {people} {req.facility === 'clinic' ? 'people at a time' : f.noun}
                 </span>
+                {result.evac && (
+                  <span className={`st-evac${result.evac.minutes > CARE.badMin * 0.75 ? ' is-bad' : ''}`}>
+                    <b>{result.evac.minutes} min</b> to clear at night · {result.evac.staff} staff, {result.evac.assisted} residents need help <Cites ids={['C1', 'C2', 'C3']} />
+                  </span>
+                )}
               </>
             }
           />
@@ -193,6 +205,32 @@ export function Studio({ result, results, req, budget, setBudget, commitBudget, 
                   </button>
                 </div>
               </div>
+              {req.facility === 'carehome' && (
+                <div className="ctl">
+                  <span className="mono-label">Night staff on shift</span>
+                  <div className="stepper-ctl">
+                    <button type="button" className="icon-btn is-square" disabled={staff <= 1} onClick={() => setReq({ opts: { nightStaff: staff - 1 } })} aria-label="Fewer night staff">
+                      <Minus size={14} strokeWidth={1.8} />
+                    </button>
+                    <span className="ctl-value">
+                      <NumberFlow value={staff} /> <span className="ctl-unit">staff</span>
+                    </span>
+                    <button type="button" className="icon-btn is-square" disabled={staff >= 12} onClick={() => setReq({ opts: { nightStaff: staff + 1 } })} aria-label="More night staff">
+                      <Plus size={14} strokeWidth={1.8} />
+                    </button>
+                  </div>
+                </div>
+              )}
+              {req.facility === 'carehome' && (
+                <label className="ctl ctl-switch">
+                  <span>
+                    Add backup cooling
+                    <span className="mono-label">Generator runs cooling and heating in a blackout</span>
+                  </span>
+                  <input type="checkbox" role="switch" checked={req.opts.generator} onChange={(e) => setReq({ opts: { generator: e.target.checked } })} />
+                </label>
+              )}
+              {req.facility !== 'carehome' && (
               <label className="ctl ctl-switch">
                 <span>
                   Outdoor playground
@@ -200,6 +238,7 @@ export function Studio({ result, results, req, budget, setBudget, commitBudget, 
                 </span>
                 <input type="checkbox" role="switch" checked={f.needsOutdoor || req.opts.outdoorPlay} disabled={f.needsOutdoor} onChange={(e) => setReq({ opts: { outdoorPlay: e.target.checked } })} />
               </label>
+              )}
               <label className="ctl ctl-switch">
                 <span>
                   Wheelchair access first
@@ -219,6 +258,7 @@ export function Studio({ result, results, req, budget, setBudget, commitBudget, 
                 <input id="budget" className="range" type="range" min={BUDGET_MIN} max={BUDGET_MAX} step={5000} value={budget} style={{ ['--fill' as string]: `${((budget - BUDGET_MIN) / (BUDGET_MAX - BUDGET_MIN)) * 100}%` }} onChange={(e) => setBudget(Number(e.target.value))} onPointerUp={commitBudget} onKeyUp={commitBudget} onTouchEnd={commitBudget} aria-valuetext={`$${budget.toLocaleString('en-US')}`} />
               </div>
 
+              {stretch && stretch.id !== p.id && <BudgetStepCard step={stretch} onApply={() => (setBudget(stretch.budget), setReq({ budget: stretch.budget }))} />}
               <div className="conflicts" aria-live="polite">
                 {result.conflicts.length === 0 && <p className="mono-label cf-ok">Every rule passes · no conflicts</p>}
                 {result.conflicts.map((c, i) => (

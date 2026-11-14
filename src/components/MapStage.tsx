@@ -5,7 +5,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { CITIES, type CityId } from '../data/config'
 import type { Result } from '../logic/evaluate'
 import type { Impact } from '../logic/impact'
-import type { LngLat } from '../logic/geo'
+import { routeOut, type LngLat, type SiteGeo } from '../logic/geo'
 
 // The worker is self contained; ship it as an asset so dev and build both work.
 maplibregl.setWorkerUrl(workerUrl)
@@ -69,8 +69,17 @@ function paint(map: MLMap) {
 
   // Our own sources: candidates (real OSM footprints) and impact overlays.
   const src = (id: string) => !map.getSource(id) && map.addSource(id, { type: 'geojson', data: EMPTY })
-  ;['cm-cands', 'cm-streets', 'cm-catch', 'cm-routes', 'cm-stops', 'cm-exist', 'cm-allstops'].forEach(src)
+  ;['cm-cands', 'cm-streets', 'cm-catch', 'cm-routes', 'cm-stops', 'cm-exist', 'cm-allstops', 'cm-flood', 'cm-cut', 'cm-out'].forEach(src)
   const add = (spec: maplibregl.LayerSpecification, before?: string) => !map.getLayer(spec.id) && map.addLayer(spec, before)
+  // Disaster layers: FEMA flood zones as ink water, cut streets dashed ink, the road out in orange.
+  add({ id: 'cm-flood-fill', type: 'fill', source: 'cm-flood', paint: { 'fill-color': ink, 'fill-opacity': 0 } }, 'kiln-3d')
+  add({ id: 'cm-flood-line', type: 'line', source: 'cm-flood', paint: { 'line-color': ink, 'line-width': 0.8, 'line-opacity': 0 } }, 'kiln-3d')
+  add({ id: 'cm-cut', type: 'line', source: 'cm-cut', layout: { 'line-cap': 'round' }, paint: { 'line-color': ink, 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 1.4, 16, 3], 'line-dasharray': [1, 1.5], 'line-opacity': 0 } })
+  add({ id: 'cm-out', type: 'line', source: 'cm-out', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': accent, 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 2.5, 16, 5], 'line-opacity': 0 } })
+  set('cm-flood-fill', 'fill-color', ink)
+  set('cm-flood-line', 'line-color', ink)
+  set('cm-cut', 'line-color', ink)
+  set('cm-out', 'line-color', accent)
   add({ id: 'cm-catch-fill', type: 'fill', source: 'cm-catch', paint: { 'fill-color': ink, 'fill-opacity': 0.04 } }, 'kiln-3d')
   add({ id: 'cm-catch-line', type: 'line', source: 'cm-catch', paint: { 'line-color': ink, 'line-width': 1.2, 'line-dasharray': [3, 2], 'line-opacity': 0.7 } }, 'kiln-3d')
   add({ id: 'cm-streets', type: 'line', source: 'cm-streets', layout: { 'line-cap': 'round' }, paint: { 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 1.2, 16, 3.2], 'line-opacity': 0 } }, 'kiln-3d')
@@ -136,9 +145,10 @@ interface Props {
   reveal: number // 0..1, how far the impact has spread from the site
   stops: { at: LngLat; kind: string }[] // every OSM stop near the city's candidates
   proposed: string // facility label shown on the site in the impact view
+  disaster: { geo: SiteGeo; site: LngLat; scenario: 'z100' | 'z500' | 'blackout'; reveal: number } | null
 }
 
-export function MapStage({ city, results, shown, selected, onSelect, onOther, theme, mode, padRight, padBottom, showChecks, focus, impact, view, reveal, stops, proposed }: Props) {
+export function MapStage({ city, results, shown, selected, onSelect, onOther, theme, mode, padRight, padBottom, showChecks, focus, impact, view, reveal, stops, proposed, disaster }: Props) {
   const box = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MLMap | null>(null)
   const markers = useRef<Map<string, Marker>>(new Map())
@@ -306,6 +316,38 @@ export function MapStage({ city, results, shown, selected, onSelect, onOther, th
     searchMarker.current = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat(focus.lngLat).addTo(map)
     map.flyTo({ center: focus.lngLat, zoom: 16.4, pitch: 50, duration: 1800, essential: true })
   }, [focus, ready])
+
+  // Disaster overlays: recompute the cut streets and the road out per scenario.
+  const dGeo = disaster?.geo
+  const dScenario = disaster?.scenario
+  const dSite = disaster?.site
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready) return
+    const set = (id: string, data: GeoJSON.FeatureCollection) => (map.getSource(id) as maplibregl.GeoJSONSource | undefined)?.setData(data)
+    if (!dGeo || !dScenario || !dSite || mode !== 'impact') {
+      ;['cm-flood', 'cm-cut', 'cm-out'].forEach((id) => set(id, EMPTY))
+      return
+    }
+    const fl = dGeo.flood ?? { z100: [], z500: [] }
+    const ringsFor = dScenario === 'z100' ? fl.z100 : dScenario === 'z500' ? [...fl.z100, ...fl.z500] : []
+    set('cm-flood', { type: 'FeatureCollection', features: ringsFor.map((r) => ({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [r] }, properties: {} })) })
+    const out = routeOut(dGeo, dSite, dScenario === 'blackout' ? null : dScenario)
+    set('cm-cut', { type: 'FeatureCollection', features: dGeo.edges.filter((_, i) => out.cut[i]).map(([a, b]) => ({ type: 'Feature', geometry: { type: 'LineString', coordinates: [dGeo.nodes[a], dGeo.nodes[b]] }, properties: {} })) })
+    set('cm-out', out.path.length > 1 ? { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: { type: 'LineString', coordinates: out.path }, properties: {} }] } : EMPTY)
+  }, [dGeo, dScenario, dSite, mode, ready])
+
+  // The water rises: zones fade in, then cut streets, then the road out.
+  const dReveal = disaster?.reveal ?? 0
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ready || !map.getLayer('cm-flood-fill')) return
+    const r = mode === 'impact' ? dReveal : 0
+    map.setPaintProperty('cm-flood-fill', 'fill-opacity', Math.min(1, r / 0.5) * 0.22)
+    map.setPaintProperty('cm-flood-line', 'line-opacity', Math.min(1, r / 0.5) * 0.6)
+    map.setPaintProperty('cm-cut', 'line-opacity', Math.max(0, Math.min(1, (r - 0.35) / 0.35)) * 0.9)
+    map.setPaintProperty('cm-out', 'line-opacity', Math.max(0, Math.min(1, (r - 0.7) / 0.3)))
+  }, [dReveal, mode, ready])
 
   // Real transit stops around the candidates, shown outside the impact view.
   useEffect(() => {

@@ -2,24 +2,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, MotionConfig, animate, motion } from 'motion/react'
 import NumberFlow from '@number-flow/react'
 import { BookOpen, Moon, Sun, X } from 'lucide-react'
-import { CITIES, FACILITIES, type CityId, type FacilityId } from './data/config'
+import { ACTIVE_FACILITIES, CITIES, FACILITIES, type CityId, type FacilityId } from './data/config'
 import { ASSUMPTIONS, KIND_ORDER, SITE_EVIDENCE, SOURCE_LABEL, userEvidence, type Evidence, type SourceKind } from './data/evidence'
 import { CANDIDATES, byCity } from './data/candidates'
-import { evaluate, inspectionOrder, thousands, type Request, type Result } from './logic/evaluate'
+import { budgetStep, evaluate, inspectionOrder, thousands, type Request, type Result } from './logic/evaluate'
 import { loadGeo, simulate, type Impact } from './logic/impact'
 import { EvidenceContext, SOURCE_ICON } from './components/Cite'
 import { MapStage, type MapMode, type OtherBuilding } from './components/MapStage'
-import { ComparePanel, Shortlist, cellAt, rulesOf } from './components/Shortlist'
+import { BudgetStepCard, ComparePanel, Shortlist, cellAt, rulesOf } from './components/Shortlist'
 import { Journey, STEPS } from './components/Journey'
 import { Studio } from './components/Studio'
 import { ImpactPanel } from './components/ImpactPanel'
+import { DisasterPanel, SCENARIOS, outcome, type Scenario } from './components/DisasterPanel'
 import { AgentLog, type AgentName, type LogLine } from './components/AgentLog'
 import { SearchBox, type Hit } from './components/SearchBox'
 import { Hook } from './components/Hook'
 import { BUDGET_MAX, BUDGET_MIN } from './components/Replan'
-import type { LngLat } from './logic/geo'
+import type { LngLat, SiteGeo } from './logic/geo'
 
-const START: Request = { city: 'houston', facility: 'learning', capacity: 40, budget: 150000, opts: { outdoorPlay: false, accessFirst: false }, variant: 'A' }
+const START: Request = { city: 'houston', facility: 'carehome', capacity: 24, budget: 500000, opts: { outdoorPlay: false, accessFirst: false, generator: true, nightStaff: 0 }, variant: 'A' }
 const CUT_BUDGET = 90000
 type Patch = Partial<Omit<Request, 'opts'>> & { opts?: Partial<Request['opts']> }
 const merge = (r: Request, p: Patch): Request => ({ ...r, ...p, opts: { ...r.opts, ...(p.opts ?? {}) } })
@@ -56,6 +57,9 @@ export default function App() {
   const [view, setView] = useState<'before' | 'after'>('before')
   const [reveal, setReveal] = useState(0)
   const [ran, setRan] = useState(false)
+  const [geo, setGeo] = useState<SiteGeo | null>(null)
+  const [scenario, setScenario] = useState<Scenario>('z500')
+  const [dReveal, setDReveal] = useState(0)
   const [stops, setStops] = useState<{ at: LngLat; kind: string }[]>([])
   const timers = useRef<number[]>([])
   const lineId = useRef(0)
@@ -100,6 +104,7 @@ export default function App() {
   )
   const byId = useMemo(() => Object.fromEntries(evidence.map((e) => [e.id, e])), [evidence])
   const passes = results.filter((r) => r.status === 'pass')
+  const stretch = useMemo(() => (step >= 2 ? budgetStep(req, results) : null), [req, results, step])
   const shownResult = results.find((r) => r.property.id === selected) ?? passes[0] ?? results[0]
 
   const later = (ms: number, fn: () => void) => timers.current.push(window.setTimeout(fn, reduce ? Math.min(ms, 80) : ms))
@@ -202,6 +207,17 @@ export default function App() {
       setView('before')
       setImpact(null)
       const r = res.find((x) => x.property.id === pick)!
+      setGeo(null)
+      setDReveal(0)
+      if (base.facility === 'carehome') {
+        log('Simulator', `Loading FEMA flood zones and the street network around ${r.property.name}`)
+        loadGeo(pick).then((g) => {
+          setGeo(g)
+          log('Simulator', `${(g.flood?.z100.length ?? 0) + (g.flood?.z500.length ?? 0)} FEMA flood zone areas, ${g.edges.length.toLocaleString('en-US')} street segments`)
+        })
+        setStep(n)
+        return
+      }
       log('Simulator', `Loading the OpenStreetMap street network around ${r.property.name}`)
       loadGeo(pick).then((g) => {
         const im = simulate(g, r, base.facility)
@@ -274,6 +290,29 @@ export default function App() {
     setSearch({ lngLat: h.lngLat, label: h.label, key: Date.now() })
   }
 
+  function pickDisaster(id: string) {
+    setSelected(id)
+    setGeo(null)
+    loadGeo(id).then((g) => {
+      setGeo(g)
+      setDReveal(ran ? 1 : 0)
+    })
+  }
+
+  function runDisaster() {
+    if (!geo || !shownResult) return
+    setRan(true)
+    setDReveal(0)
+    const sc = SCENARIOS.find((x) => x.id === scenario)!
+    log('Simulator', `Running ${sc.label.toLowerCase()} at ${shownResult.property.name}`)
+    animate(0, 1, { duration: reduce ? 0.01 : 3, ease: [0.33, 0, 0.2, 1], onUpdate: setDReveal })
+    const o = outcome(shownResult, scenario)
+    later(3100, () => log('Simulator', `${shownResult.property.name}: ${o.verdict.toLowerCase()}`, o.wet || (o.out === null && !o.stay) ? 'fail' : 'ok'))
+    const all = results.map((r) => SCENARIOS.map((x) => outcome(r, x.id)))
+    const ok = all.filter((row) => row.every((x) => !x.wet && (x.out !== null || x.stay))).length
+    later(3600, () => log('Ranker', `${ok} of ${results.length} buildings stay safe in all three scenarios`))
+  }
+
   function runImpact() {
     if (!impact) return
     setRan(true)
@@ -312,12 +351,16 @@ export default function App() {
     if (step === 3 && !cut.current)
       return go(7000, () => {
         cut.current = true
-        setReq({ budget: CUT_BUDGET })
+        // Cut to just above #2's core work, so the leader is rejected and #2 takes over.
+        const top = results.filter((r) => r.status === 'pass')
+        const nb = top.length > 1 && top[1].coreCost < top[0].coreCost ? Math.ceil(top[1].coreCost / 10000) * 10000 : CUT_BUDGET
+        setReq({ budget: nb < top[0]?.coreCost ? nb : CUT_BUDGET })
       })
     if (step === 3 && cut.current) return go(7000, () => goTo(4))
+    if (step === 4 && req.facility === 'carehome' && geo && !ran) return go(2500, runDisaster)
     if (step === 4 && impact && !ran) return go(2500, runImpact)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, busy, ranked, impact, ran, selected, req.budget])
+  }, [step, busy, ranked, impact, ran, selected, req.budget, geo])
 
   const narrow = width < 900
   const sideW = Math.min(640, Math.round(width * 0.44))
@@ -379,6 +422,7 @@ export default function App() {
               reveal={ran ? reveal : 1}
               stops={stops}
               proposed={f.label}
+              disaster={step === 4 && geo && shownResult && req.facility === 'carehome' ? { geo, site: shownResult.property.lngLat, scenario, reveal: ran ? dReveal : 0 } : null}
             />
             <div className={`wash${step === 0 ? ' is-on' : ''}`} aria-hidden="true" />
 
@@ -403,16 +447,22 @@ export default function App() {
                   <Hook city={req.city} />
                   <span className="mono-label need-kicker">{CITIES[req.city].name} · what does the neighborhood need?</span>
                   <h1 className="need-line">
-                    A{' '}
-                    <Blank i={0}>
-                      <select className="blank-select" value={req.facility} onChange={(e) => setReq({ facility: e.target.value as FacilityId, capacity: FACILITIES[e.target.value as FacilityId].capacity.default, budget: FACILITIES[e.target.value as FacilityId].budget })} aria-label="Facility type">
-                        {(Object.keys(FACILITIES) as FacilityId[]).map((id) => (
-                          <option key={id} value={id}>
-                            {FACILITIES[id].label}
-                          </option>
-                        ))}
-                      </select>
-                    </Blank>{' '}
+                    {ACTIVE_FACILITIES.length > 1 ? (
+                      <>
+                        A{' '}
+                        <Blank i={0}>
+                          <select className="blank-select" value={req.facility} onChange={(e) => setReq({ facility: e.target.value as FacilityId, capacity: FACILITIES[e.target.value as FacilityId].capacity.default, budget: FACILITIES[e.target.value as FacilityId].budget })} aria-label="Facility type">
+                            {ACTIVE_FACILITIES.map((id) => (
+                              <option key={id} value={id}>
+                                {FACILITIES[id].label}
+                              </option>
+                            ))}
+                          </select>
+                        </Blank>{' '}
+                      </>
+                    ) : (
+                      <>An <Blank i={0}>{f.label}</Blank> </>
+                    )}
                     for{' '}
                     <Blank i={1}>
                       <select className="blank-select" value={req.capacity} onChange={(e) => setReq({ capacity: Number(e.target.value) })} aria-label="Capacity">
@@ -423,7 +473,15 @@ export default function App() {
                         ))}
                       </select>
                     </Blank>
-                    , with <Blank i={2}>step free</Blank> entry, under{' '}
+                    {req.facility === 'carehome' ? (
+                      <>
+                        {' '}that stays safe through <Blank i={2}>floods and blackouts</Blank> at night, under{' '}
+                      </>
+                    ) : (
+                      <>
+                        , with <Blank i={2}>step free</Blank> entry, under{' '}
+                      </>
+                    )}
                     <Blank i={3}>
                       <select className="blank-select" value={req.budget} onChange={(e) => setReq({ budget: Number(e.target.value) })} aria-label="Budget">
                         {Array.from({ length: (BUDGET_MAX - BUDGET_MIN) / 10000 + 1 }, (_, i) => BUDGET_MIN + i * 10000).map((n) => (
@@ -438,10 +496,10 @@ export default function App() {
                   <div className="need-foot">
                     <span className="mono-label">Reads</span>
                     <span className="need-sources" aria-label="Sources CityMorph reads">
-                      {(['osm', 'census', 'costar', 'matterport', 'vexcel'] as SourceKind[]).map((s) => {
+                      {(['fema', 'osm', 'census', 'costar', 'matterport', 'vexcel'] as SourceKind[]).map((s) => {
                         const Icon = SOURCE_ICON[s]
                         return (
-                          <span key={s} className={`need-source${s === 'osm' || s === 'census' ? ' is-real' : ''}`}>
+                          <span key={s} className={`need-source${s === 'osm' || s === 'census' || s === 'fema' ? ' is-real' : ''}`}>
                             <Icon size={14} strokeWidth={1.7} /> {SOURCE_LABEL[s]}
                           </span>
                         )
@@ -459,6 +517,7 @@ export default function App() {
                     </span>
                     <span className="side-title">{step === 1 ? `buildings already standing in ${CITIES[req.city].name}` : ranked ? `of ${results.length} pass every rule` : 'being checked, one by one'}</span>
                   </div>
+                  {step === 2 && ranked && stretch && <BudgetStepCard step={stretch} onApply={() => setReq({ budget: stretch.budget })} />}
                   <Shortlist results={results} order={order} shown={shown} mode={step === 1 ? 'find' : 'check'} ranked={ranked} selected={selected} onSelect={select} compare={compare} onCompare={(id) => setCompare((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id].slice(-2)))} />
                   <p className="fig mono-label">{step === 1 ? 'Fig 02 · Footprints from OpenStreetMap · listings are sample records' : 'Fig 03 · Rules and scores run in code, not by a model · tick two to compare'}</p>
                 </motion.aside>
@@ -483,13 +542,35 @@ export default function App() {
                     over={over}
                     was={was}
                     note={lines.at(-1) ?? null}
+                    stretch={stretch}
                   />
                 </motion.aside>
               )}
 
               {step === 4 && shownResult && (
                 <motion.aside key="impact" className="side-impact" style={{ width: narrow ? undefined : impactW }} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
-                  <ImpactPanel result={shownResult} facility={req.facility} impact={impact} view={view} setView={setView} ran={ran} onRun={runImpact} />
+                  {req.facility === 'carehome' ? (
+                    <DisasterPanel
+                      result={shownResult}
+                      results={results}
+                      scenario={scenario}
+                      setScenario={(x) => {
+                        setScenario(x)
+                        if (ran) {
+                          setDReveal(0)
+                          animate(0, 1, { duration: reduce ? 0.01 : 1.6, ease: [0.33, 0, 0.2, 1], onUpdate: setDReveal })
+                        }
+                      }}
+                      ran={ran}
+                      onRun={runDisaster}
+                      onPick={pickDisaster}
+                      stretch={stretch}
+                      onStretch={() => setReq({ budget: stretch!.budget })}
+                      loading={!geo}
+                    />
+                  ) : (
+                    <ImpactPanel result={shownResult} facility={req.facility} impact={impact} view={view} setView={setView} ran={ran} onRun={runImpact} />
+                  )}
                 </motion.aside>
               )}
             </AnimatePresence>

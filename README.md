@@ -6,6 +6,19 @@ CityMorph finds existing buildings that could become the services a neighborhood
 > **Real public data:** building footprints, streets, footpaths, transit stops, parks and existing facilities (OpenStreetMap, via Overpass), and tract population and children under 5 (US Census ACS 5-year, via Census Reporter). This data is fetched by `scripts/fetch-geo.mjs` and baked into the repo.
 > **Simulated, and labelled in the UI:** listings, vacancy, use, storeys where OSM has none, interiors and doors, yards, LA zone readings, costs and every planning ratio. Nothing is presented as a live CoStar, Matterport or Vexcel result. Every number cites its source in the evidence trail.
 
+## Current focus: old age homes
+
+The prototype is set up for one user: an operator choosing among about 10 buildings to convert into an old age home. The learning center, childcare and clinic programs are still in the code but hidden (`ACTIVE_FACILITIES` in `src/data/config.ts`).
+
+* **Hard rules:** step free entry, fits the residents, one level, **outside the FEMA 100-year floodplain** (real NFHL data), **backup power that runs cooling**, and budget.
+* **Night evacuation model** (`src/logic/evacuation.ts`): residents who need help (65%, KFF), night staff (default 1 per 9, GAO summary), minutes per assisted transfer, and the corridor distance from each bedroom to the nearest step free exit on the generated plan. Rates are labelled assumptions (C1 to C3).
+* **Disaster simulation** (step 5): 100-year flood, 500-year flood and a night blackout.
+  * The FEMA zones are drawn on the map, and flooded street segments are removed from the OSM graph.
+  * The road out of the area is recomputed; it is "cut off" if none survives.
+  * A matrix shows every building in every scenario.
+* **Budget step:** if a building that fails only on budget would score clearly higher within 15% more money, CityMorph says how much more it costs and what it buys.
+* Data scripts: `scripts/fetch-flood.mjs` (FEMA NFHL zones) and `scripts/fetch-seniors.mjs` (Census 65+ and 80+). Then run `scripts/derive-geo.ts` to compute the flood distances and roads out.
+
 ## Run
 
 ```

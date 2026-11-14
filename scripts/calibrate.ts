@@ -3,8 +3,11 @@
 import { evaluate, type Request } from '../src/logic/evaluate'
 import { FACILITIES, type CityId, type FacilityId } from '../src/data/config'
 
-const base = { opts: { outdoorPlay: false, accessFirst: false }, variant: 'A' as const }
+const base = { opts: { outdoorPlay: false, accessFirst: false, generator: true, nightStaff: 0 }, variant: 'A' as const }
 const cases: [CityId, FacilityId, number][] = [
+  ['houston', 'carehome', 500000],
+  ['houston', 'carehome', 420000],
+  ['la', 'carehome', 500000],
   ['houston', 'learning', 150000],
   ['houston', 'learning', 90000],
   ['houston', 'childcare', 150000],
@@ -21,7 +24,7 @@ for (const [city, facility, budget] of cases) {
     const p = r.property
     const fail = r.checks.filter((c) => !c.pass).map((c) => c.fail)
     console.log(
-      `  ${r.status === 'pass' ? 'PASS' : 'fail'} ${p.name.padEnd(22)} fit ${String(r.score).padStart(3)} core $${Math.round(r.coreCost / 1000)}k total $${Math.round(r.cost / 1000)}k seats ${r.plan.achieved}/${req.capacity} sq ${p.footprintSqft} sq${Math.round(r.plan.squeeze * 100)} walls ${r.plan.newWallFt}ft max ${r.maxCapacity} ${fail.join(', ')}`,
+      `  ${r.status === 'pass' ? 'PASS' : 'fail'} ${p.name.padEnd(22)} fit ${String(r.score).padStart(3)} core $${Math.round(r.coreCost / 1000)}k total $${Math.round(r.cost / 1000)}k seats ${r.plan.achieved}/${req.capacity} sq ${p.footprintSqft} sq${Math.round(r.plan.squeeze * 100)} walls ${r.plan.newWallFt}ft evac ${r.evac?.minutes ?? '-'}min ${fail.join(', ')}`,
     )
   }
 }

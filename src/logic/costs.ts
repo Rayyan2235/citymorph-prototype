@@ -2,7 +2,7 @@
 // lengths, room counts, doors); unit costs come from COSTS in config. Every
 // figure is a planning estimate (evidence A3), never a quote.
 
-import { COSTS, FACILITIES, type DesignOpts, type FacilityId } from '../data/config'
+import { CARE_COSTS, COSTS, FACILITIES, type DesignOpts, type FacilityId } from '../data/config'
 import type { Candidate } from '../data/candidates'
 import type { Layout } from './layout'
 
@@ -23,7 +23,14 @@ export function workList(c: Candidate, facility: FacilityId, opts: DesignOpts, p
   const primary = plan.zones.filter((z) => z.kind === 'primary')
 
   const targetGroup = f.occupancy[0]
-  if (c.occupancy !== targetGroup) add('use', `Change of use, ${c.use.toLowerCase()} to ${f.label}: exits and fire review`, COSTS.changeOfUse, true, 'A4')
+  if (facility === 'carehome') {
+    add('use', `Change of use to a care home: fire alarm, exits and licensing review`, CARE_COSTS.changeOfUse, true, 'A4')
+    add('sprk', `Sprinklers through ${c.footprintSqft.toLocaleString('en-US')} sq ft`, c.footprintSqft * CARE_COSTS.sprinklerPerSqft, true, 'A3')
+    const beds = plan.zones.filter((z) => z.kind === 'primary').reduce((t, z) => t + z.seats, 0)
+    add('call', `Nurse call button at ${beds} beds`, beds * CARE_COSTS.nurseCallPerBed, true, 'A3')
+    if (opts.generator && c.generator !== 'full')
+      add('gen', c.generator === 'life' ? 'Upgrade the generator to run cooling and heating' : 'Generator that runs cooling and heating', c.generator === 'life' ? CARE_COSTS.generatorUpgrade : CARE_COSTS.generatorHvac, true, 'C4')
+  } else if (c.occupancy !== targetGroup) add('use', `Change of use, ${c.use.toLowerCase()} to ${f.label}: exits and fire review`, COSTS.changeOfUse, true, 'A4')
   if (conditional) add('cup', 'Conditional use permit for this zone', 15000, true, 'Z1')
   add('walls', `New partitions, about ${plan.newWallFt} ft`, plan.newWallFt * COSTS.newWallPerFt, true, `${c.id}:scan`)
   add('demo', `Remove old partitions, about ${plan.removedWallFt} ft`, plan.removedWallFt * COSTS.removeWallPerFt, true, `${c.id}:scan`)
@@ -35,7 +42,7 @@ export function workList(c: Candidate, facility: FacilityId, opts: DesignOpts, p
 
   if (plan.door?.lip) add('ramp', `Short ramp at the ${plan.door.name.toLowerCase()}`, COSTS.rampLip, true, plan.door.ev)
   const exit2 = plan.entrances.find((e) => e.isNew)
-  if (exit2) add('exit', `Second exit door for ${plan.occupants} occupants`, COSTS.secondExit, true, 'A7')
+  if (exit2) add('exit', facility === 'carehome' ? 'Second step free exit at the far end of the bedrooms' : `Second exit door for ${plan.occupants} occupants`, COSTS.secondExit, true, 'A7')
   if (opts.accessFirst) add('wide', 'Wider corridor, lever handles and accessible signage', COSTS.wideHall, true, 'U5')
 
   if (facility === 'childcare') add('kids', `Child-height sinks and toilets in ${primary.length} classroom${primary.length === 1 ? '' : 's'}`, primary.length * COSTS.childFixturesPerRoom, true, 'A5')

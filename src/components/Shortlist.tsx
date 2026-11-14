@@ -1,8 +1,8 @@
 import { createRef, useContext, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Accessibility, Check, ChevronDown, Landmark, Layers, Ruler, Trees, Wallet, X, type LucideIcon } from 'lucide-react'
+import { Accessibility, Check, ChevronDown, Landmark, Layers, Ruler, Trees, Wallet, Waves, X, Zap, type LucideIcon } from 'lucide-react'
 import type { SourceKind } from '../data/evidence'
-import type { CheckId, Criterion, Result } from '../logic/evaluate'
+import type { BudgetStep, CheckId, Criterion, Result } from '../logic/evaluate'
 import { Aerial } from './AerialFrame'
 import { Beam, type BeamPulse } from './Beam'
 import { Cites, EvidenceContext, SOURCE_ICON } from './Cite'
@@ -13,8 +13,8 @@ const BASE = 0.8
 export const cellAt = (i: number, j: number) => BASE + i * 0.55 + j * 0.1
 const BEAM_S = 0.9
 
-const SOURCE_SHORT: Record<SourceKind, string> = { user: 'You', osm: 'OSM', census: 'Census', costar: 'Listing', matterport: 'Scan', vexcel: 'Aerial', assumption: 'Assumed' }
-const SOURCE_ORDER: SourceKind[] = ['user', 'osm', 'census', 'costar', 'matterport', 'vexcel', 'assumption']
+const SOURCE_SHORT: Record<SourceKind, string> = { user: 'You', osm: 'OSM', census: 'Census', fema: 'FEMA', costar: 'Listing', matterport: 'Scan', vexcel: 'Aerial', assumption: 'Assumed' }
+const SOURCE_ORDER: SourceKind[] = ['user', 'fema', 'osm', 'census', 'costar', 'matterport', 'vexcel', 'assumption']
 
 export const RULE_META: Record<CheckId, { label: string; icon: LucideIcon }> = {
   access: { label: 'Step free', icon: Accessibility },
@@ -23,8 +23,10 @@ export const RULE_META: Record<CheckId, { label: string; icon: LucideIcon }> = {
   budget: { label: 'Budget', icon: Wallet },
   zoning: { label: 'Zoning', icon: Landmark },
   outdoor: { label: 'Outdoor', icon: Trees },
+  flood: { label: 'Flood', icon: Waves },
+  power: { label: 'Cooling', icon: Zap },
 }
-const RULE_ORDER: CheckId[] = ['access', 'space', 'level', 'budget', 'zoning', 'outdoor']
+const RULE_ORDER: CheckId[] = ['access', 'space', 'level', 'flood', 'power', 'budget', 'zoning', 'outdoor']
 export const rulesOf = (rows: Result[]) => RULE_ORDER.filter((id) => rows.some((r) => r.checks.some((c) => c.id === id)))
 
 const k = (n: number) => `$${Math.round(n / 1000)}k`
@@ -307,5 +309,29 @@ export function ComparePanel({ a, b, onClose, rankOf }: { a: Result; b: Result; 
       </div>
       <p className="cmp-why">{whyAbove(x, y)}.</p>
     </motion.section>
+  )
+}
+
+// The mentor's ask: if a bit more money buys a much safer building, say so.
+export function BudgetStepCard({ step, onApply }: { step: BudgetStep; onApply: () => void }) {
+  return (
+    <motion.div className="bstep" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
+      <span className="mono-label">Worth stretching the budget?</span>
+      <p className="bstep-line">
+        <b>+{k(step.extra)}</b> (to {k(step.budget)}) gets <b>{step.name}</b>: fit <b>{step.to.score}</b>
+        {step.from ? ` instead of ${step.from.score} at ${step.from.name}` : ''}
+        {step.to.evac !== null && step.from?.evac != null ? `, night evacuation ${step.to.evac} min instead of ${step.from.evac}` : ''}.
+      </p>
+      {step.reasons.length > 0 && (
+        <ul className="bstep-why">
+          {step.reasons.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+      )}
+      <button type="button" className="btn-chip" onClick={onApply}>
+        Set budget to {k(step.budget)}
+      </button>
+    </motion.div>
   )
 }

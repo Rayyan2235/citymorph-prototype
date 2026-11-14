@@ -2583,3 +2583,162 @@ p {
 .bars li.bars-key {
   display: block;
 }
+.st-evac {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: var(--t-13);
+  color: var(--ink-soft);
+}
+.st-evac b {
+  font-family: var(--font-display);
+  font-size: var(--t-16);
+  color: var(--ink);
+}
+.st-evac.is-bad b {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+.bstep {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--s-3);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-card);
+  background: var(--accent-tint);
+}
+.bstep-line {
+  font-size: var(--t-14);
+  line-height: 1.45;
+}
+.bstep-why {
+  margin: 0;
+  padding-left: 18px;
+  font-size: var(--t-12);
+  color: var(--ink-soft);
+}
+.bstep .btn-chip {
+  align-self: flex-start;
+}
+/* disaster simulation */
+.ds-tabs .seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: none;
+}
+.ds-verdict {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--t-20);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.ds-verdict.is-bad {
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-control);
+  background: var(--ink);
+  color: var(--paper-raised);
+}
+.im-stats dd.ds-text {
+  font-size: var(--t-24);
+}
+.im-stats dd.ds-text.is-bad {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+.ds-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ds-matrix table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-12);
+}
+.ds-matrix th,
+.ds-matrix td {
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--hairline);
+  text-align: center;
+  white-space: nowrap;
+}
+.ds-matrix thead th {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: var(--t-10);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.ds-matrix thead th.is-on {
+  color: var(--ink);
+}
+.ds-matrix tbody th {
+  text-align: left;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+}
+.ds-matrix tbody tr {
+  cursor: pointer;
+}
+.ds-matrix tbody tr:hover {
+  background: var(--paper-sunk);
+}
+.ds-matrix tr.is-me th {
+  color: var(--accent);
+}
+.ds-matrix tr.is-out th {
+  color: var(--ink-muted);
+}
+.ds-matrix td.is-bad {
+  background: var(--ink);
+  color: var(--paper-raised);
+  font-weight: 600;
+}
+.ds-matrix td.is-ok {
+  color: var(--ink);
+  font-weight: 600;
+}
+.ds-matrix td.is-on {
+  outline: 1px solid var(--stone);
+  outline-offset: -1px;
+}
+.ds-rank {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper-raised);
+  font-size: 10px;
+}
+.ds-rank.is-out {
+  background: var(--stone);
+  color: var(--ink);
+}
+.ds-key {
+  font-size: var(--t-10);
+}
+.ds-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-3);
+  margin: 0;
+  font-size: var(--t-13);
+}
+.ds-facts dd {
+  margin: 4px 0 0;
+}
+.ds-matrix td.is-warn {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  font-weight: 600;
+}

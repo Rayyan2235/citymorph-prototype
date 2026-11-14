@@ -31,6 +31,12 @@ const SITES = [
   { id: 'hou-navigation', city: 'houston', area: 'East End', street: 'Navigation Blvd', at: [-95.3334, 29.7541] },
   { id: 'hou-sharpstown', city: 'houston', area: 'Sharpstown', street: 'Bellaire Blvd', at: [-95.5188, 29.7055] },
   { id: 'hou-sunnyside', city: 'houston', area: 'Sunnyside', street: 'Cullen Blvd', at: [-95.3567, 29.6615] },
+  // Five more Houston corridors near the bayous, so the 10 care home options differ in flood exposure.
+  { id: 'hou-meyerland', city: 'houston', area: 'Meyerland', street: 'S Post Oak Rd', at: [-95.4616, 29.6858] },
+  { id: 'hou-kashmere', city: 'houston', area: 'Kashmere Gardens', street: 'Lockwood Dr', at: [-95.3183, 29.8072] },
+  { id: 'hou-greenspoint', city: 'houston', area: 'Greenspoint', street: 'Greens Rd', at: [-95.4105, 29.9435] },
+  { id: 'hou-alief', city: 'houston', area: 'Alief', street: 'Bellaire Blvd', at: [-95.5642, 29.7046] },
+  { id: 'hou-heights', city: 'houston', area: 'Independence Heights', street: 'N Shepherd Dr', at: [-95.4098, 29.8162] },
   { id: 'la-boyle', city: 'la', area: 'Boyle Heights', street: 'E Cesar E Chavez Ave', at: [-118.2087, 34.0447] },
   { id: 'la-vermont', city: 'la', area: 'South LA', street: 'S Vermont Ave', at: [-118.2915, 33.96] },
   { id: 'la-westlake', city: 'la', area: 'Westlake', street: 'S Alvarado St', at: [-118.2789, 34.057] },
@@ -75,10 +81,14 @@ async function overpass(q, tries = 8) {
   throw new Error('overpass failed')
 }
 
-async function getJson(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': UA } })
-  if (!res.ok) throw new Error(`${res.status} ${url}`)
-  return res.json()
+async function getJson(url, tries = 5) {
+  for (let i = 0; ; i++) {
+    const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(60000) }).catch((e) => ({ ok: false, status: e.name }))
+    if (res.ok) return res.json()
+    if (i >= tries - 1) throw new Error(`${res.status} ${url}`)
+    console.warn(`  ${res.status}, retry`)
+    await sleep(5000 * (i + 1))
+  }
 }
 
 // Metres between two lon/lat points, and polygon area in m², both on a local
@@ -211,6 +221,9 @@ async function census([lon, lat]) {
     landM2: Number(t.AREALAND),
     pop: e.B01001001,
     under5: e.B01001003 + e.B01001027,
+    // 65+ is B01001 lines 20-25 (men) and 44-49 (women); 80+ is 24-25 and 48-49.
+    over65: [20, 21, 22, 23, 24, 25, 44, 45, 46, 47, 48, 49].reduce((t, n) => t + e[`B01001${String(n).padStart(3, '0')}`], 0),
+    over80: [24, 25, 48, 49].reduce((t, n) => t + e[`B01001${String(n).padStart(3, '0')}`], 0),
     source: `${cr.release.name} table B01001 via Census Reporter; tract land area from the Census geocoder`,
   }
 }

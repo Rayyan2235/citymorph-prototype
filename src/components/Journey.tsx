@@ -5,8 +5,8 @@ export const STEPS = [
   { id: 'need', label: 'Need', next: 'Find buildings' },
   { id: 'find', label: 'Find', next: 'Check the rules' },
   { id: 'check', label: 'Check', next: 'Open the studio' },
-  { id: 'studio', label: 'Studio', next: 'Neighborhood impact' },
-  { id: 'impact', label: 'Impact', next: 'Start over' },
+  { id: 'studio', label: 'Studio', next: 'Run the disasters' },
+  { id: 'impact', label: 'Disasters', next: 'Start over' },
 ] as const
 
 interface Props {
