@@ -18,6 +18,7 @@ export type CheckId = 'access' | 'space' | 'level' | 'budget'
 export interface Check {
   id: CheckId
   label: string
+  fail: string // short failure wording, e.g. "Over budget"
   pass: boolean
   required: string
   observed: string
@@ -65,6 +66,7 @@ export function evaluate(req: Request, props: Property[], shocks: Shocks): Resul
       {
         id: 'access',
         label: 'Step free entry',
+        fail: 'No step free entry',
         pass: !req.stepFree || Boolean(stepFree),
         required: 'At least one step free entrance',
         observed: stepFree ? stepFree.name : open.length ? open.map((e) => e.name).join(', ') : 'No open entrance',
@@ -73,6 +75,7 @@ export function evaluate(req: Request, props: Property[], shocks: Shocks): Resul
       {
         id: 'space',
         label: 'Room for the program',
+        fail: 'Too small',
         pass: usable >= need,
         required: `${sq(need)} planning area`,
         observed: `${sq(usable)} usable, est.`,
@@ -81,6 +84,7 @@ export function evaluate(req: Request, props: Property[], shocks: Shocks): Resul
       {
         id: 'level',
         label: 'Rooms on one level',
+        fail: 'Not on one level',
         pass: p.floors === 1,
         required: 'Reception and both rooms on one floor',
         observed: p.floors === 1 ? 'Single storey' : `${p.floors} storeys, no elevator listed`,
@@ -89,6 +93,7 @@ export function evaluate(req: Request, props: Property[], shocks: Shocks): Resul
       {
         id: 'budget',
         label: 'Core work fits budget',
+        fail: 'Over budget',
         pass: coreCost <= req.budget,
         required: `${k(req.budget)} or less`,
         observed: `${k(coreCost)} core work`,

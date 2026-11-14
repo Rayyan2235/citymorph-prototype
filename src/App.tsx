@@ -1,407 +1,451 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import NumberFlow from '@number-flow/react'
-import { ArrowRight, BookOpen, Moon, Pause, Play, Sun, X } from 'lucide-react'
-import { EVIDENCE, PROPERTIES, SOURCE_LABEL, userEvidence, type Evidence, type PropertyId, type SourceKind } from './data/demo'
+import { ArrowRight, BookOpen, Moon, Sun, X } from 'lucide-react'
+import { EVIDENCE, PLANNING, PROPERTIES, SOURCE_LABEL, userEvidence, type Evidence, type PropertyId, type SourceKind } from './data/demo'
 import { evaluate, thousands, type Result } from './logic/evaluate'
-import { Cite, Cites, EvidenceContext } from './components/Cite'
-import { MapStage } from './components/MapStage'
-import { MorphPlan } from './components/MorphPlan'
-import { Results, TaskList } from './components/Results'
-import { AgentRun, type Step } from './components/AgentRun'
-import { AerialFrame } from './components/AerialFrame'
+import { Cites, EvidenceContext, SOURCE_ICON } from './components/Cite'
+import { MapStage, type MapMode } from './components/MapStage'
+import { IsoPlan } from './components/IsoPlan'
+import { Shortlist } from './components/Shortlist'
+import { Journey, STEPS } from './components/Journey'
+import { ReplanPanel } from './components/Replan'
+import { AERIAL_CREDIT } from './components/AerialFrame'
 
 const PEOPLE = 40
 const START_BUDGET = 150000
+const CUT_BUDGET = 90000
 const REQUEST = { people: PEOPLE, stepFree: true }
 const NO_SHOCKS = { rejected: [] as PropertyId[], closedEntrances: [] as string[] }
+const short = (name: string) => name.replace(/ (retail flex|two storey office|single storey office)$/, '')
 
-type Phase = 'idle' | 'running' | 'done'
-type Tab = 'map' | 'plan'
+interface Tick {
+  now: string
+  prev: string | null
+}
 
-interface Note {
-  title: string
-  body: string
-  cites: string[]
+function useWidth() {
+  const [w, setW] = useState(() => window.innerWidth)
+  useEffect(() => {
+    const on = () => setW(window.innerWidth)
+    window.addEventListener('resize', on)
+    return () => window.removeEventListener('resize', on)
+  }, [])
+  return w
 }
 
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
-  const [motionOn, setMotionOn] = useState(true)
-  const [phase, setPhase] = useState<Phase>('idle')
+  const [step, setStep] = useState(0)
+  const [busy, setBusy] = useState(false)
   const [budget, setBudget] = useState(START_BUDGET)
   const [committed, setCommitted] = useState(START_BUDGET)
   const [shown, setShown] = useState<PropertyId[]>([])
-  const [steps, setSteps] = useState<Step[]>([])
   const [selected, setSelected] = useState<PropertyId | null>(null)
-  const [tab, setTab] = useState<Tab>('map')
+  const [tick, setTick] = useState<Tick>({ now: 'Ready · sample Houston records', prev: null })
+  const [changed, setChanged] = useState<string | null>(null)
+  const [over, setOver] = useState(false)
+  const [playKey, setPlayKey] = useState(0)
   const [drawer, setDrawer] = useState(false)
   const [focus, setFocus] = useState<string | null>(null)
-  const [note, setNote] = useState<Note | null>(null)
-  const [changed, setChanged] = useState<Set<PropertyId>>(new Set())
   const timers = useRef<number[]>([])
-  const replanCount = useRef(0)
+  const width = useWidth()
 
+  const reduce = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches, [])
   useEffect(() => {
     document.documentElement.dataset.theme = theme
   }, [theme])
   useEffect(() => {
-    document.documentElement.dataset.motion = motionOn ? 'on' : 'off'
-  }, [motionOn])
+    document.documentElement.dataset.motion = reduce ? 'off' : 'on'
+  }, [reduce])
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
-  useEffect(() => {
-    if (note) window.setTimeout(() => document.querySelector('.note')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 80)
-  }, [note])
 
   const results = useMemo(() => evaluate({ ...REQUEST, budget: committed }, PROPERTIES, NO_SHOCKS), [committed])
   const evidence = useMemo(() => [...userEvidence(PEOPLE, committed), ...EVIDENCE], [committed])
   const byId = useMemo(() => Object.fromEntries(evidence.map((e) => [e.id, e])), [evidence])
-  const selectedResult = results.find((r) => r.property.id === selected) ?? null
+  const top = results[0]
+  const shownResult = results.find((r) => r.property.id === selected) ?? top
 
-  const later = (ms: number, fn: () => void) => {
-    timers.current.push(window.setTimeout(fn, motionOn ? ms : Math.min(ms, 60)))
+  const later = (ms: number, fn: () => void) => timers.current.push(window.setTimeout(fn, reduce ? Math.min(ms, 80) : ms))
+  const say = (now: string) => setTick((t) => ({ now, prev: t.now }))
+  const clear = () => {
+    timers.current.forEach(clearTimeout)
+    timers.current = []
   }
 
   const openEvidence = useCallback((id: string) => {
     setFocus(id)
     setDrawer(true)
   }, [])
+  const select = useCallback((id: PropertyId) => setSelected(id), [])
 
-  const select = useCallback((id: PropertyId) => {
-    setSelected(id)
-  }, [])
-
-  // First run. Every line is computed from the evaluator, not scripted text.
-  function run() {
-    timers.current.forEach(clearTimeout)
-    timers.current = []
-    setCommitted(budget)
-    const res = evaluate({ ...REQUEST, budget }, PROPERTIES, NO_SHOCKS)
+  // Every ticker line is computed from the evaluator, not scripted.
+  function goTo(n: number) {
+    clear()
+    setBusy(false)
+    setOver(false)
+    const res = evaluate({ ...REQUEST, budget: committed }, PROPERTIES, NO_SHOCKS)
     const failed = res.filter((r) => r.status === 'fail')
-    const top = res[0]
-    const findings = EVIDENCE.filter((e) => e.kind === 'matterport' || e.kind === 'vexcel').length
-    const verify = EVIDENCE.filter((e) => e.verify).length
-    const base: Step[] = [
-      { key: 's1', agent: 'Translator', title: 'Turn your request into rules', detail: `${PEOPLE} people, reception plus 2 rooms, step free entry, ${thousands(budget)} budget.`, cites: ['U1', 'U2', 'U3', 'U4'], state: 'pending' },
-      { key: 's2', agent: 'Search', title: 'Find buildings in CoStar', detail: '3 Houston buildings with both an interior scan and an aerial view.', cites: ['C1', 'C2', 'C4'], state: 'pending' },
-      { key: 's3', agent: 'Spatial evidence', title: 'Read interior scans and aerials', detail: `${findings} findings logged: entrances, rooms, parking, roofs.`, cites: ['M1', 'M4', 'V1'], state: 'pending' },
-      {
-        key: 's4',
-        agent: 'Feasibility',
-        title: 'Check hard rules in code',
-        detail: failed.length ? `${failed.map((f) => f.property.name).join(', ')} fails ${failed[0].checks.find((c) => !c.pass)?.label.toLowerCase()}.` : 'All buildings pass the hard rules.',
-        cites: failed.length ? failed[0].checks.find((c) => !c.pass)!.ev.filter((e) => !e.startsWith('U')) : ['U3'],
-        state: 'pending',
-      },
-      { key: 's5', agent: 'Critic', title: 'Flag claims that need a site visit', detail: `${verify} claims marked needs verification, including every cost.`, cites: ['A3', 'M2'], state: 'pending' },
-      { key: 's6', agent: 'Planner', title: 'Rank and draft a reuse plan', detail: `${top.property.name} fits best at about ${thousands(top.cost)}.`, cites: [top.property.ev[0], 'A3'], state: 'pending' },
-    ]
-    setSteps(base)
-    setPhase('running')
-    setShown([])
-    setSelected(null)
-    setNote(null)
-    setChanged(new Set())
-    setTab('map')
-    replanCount.current = 0
-
-    const mark = (key: string, state: Step['state']) => setSteps((s) => s.map((x) => (x.key === key ? { ...x, state } : x)))
-    let t = 150
-    base.forEach((s, i) => {
-      later(t, () => mark(s.key, 'active'))
-      t += [650, 900, 1000, 850, 750, 700][i]
-      later(t, () => mark(s.key, 'done'))
-      if (s.key === 's2') res.forEach((r, j) => later(t - 500 + j * 220, () => setShown((x) => [...x, r.property.id])))
-    })
-    later(t + 100, () => {
-      setPhase('done')
-      setSelected(top.property.id)
-    })
-    if (new URLSearchParams(window.location.search).get('demo') !== 'map') later(t + 3300, () => setTab('plan'))
+    if (n === 0) {
+      setShown([])
+      setSelected(null)
+      setBudget(START_BUDGET)
+      setCommitted(START_BUDGET)
+      setChanged(null)
+      setTick({ now: 'Ready · sample Houston records', prev: null })
+    }
+    if (n === 1) {
+      setSelected(null)
+      if (step < 1) {
+        setShown([])
+        setBusy(true)
+        say(`Translator · ${PEOPLE} people, 2 rooms, step free, ${thousands(committed)}`)
+        later(1100, () => say('Search · commercial listings with an interior scan and an aerial'))
+        res.forEach((r, i) => later(1500 + i * 450, () => setShown((s) => [...s, r.property.id])))
+        later(1500 + res.length * 450 + 300, () => {
+          say(`Found ${res.length} buildings in reach`)
+          setBusy(false)
+        })
+      } else {
+        setShown(res.map((r) => r.property.id))
+        say(`Found ${res.length} buildings in reach`)
+      }
+    }
+    if (n === 2) {
+      setShown(res.map((r) => r.property.id))
+      setSelected(null)
+      say(`Feasibility · 4 rules × ${res.length} buildings, in code`)
+      if (failed.length)
+        later(1500, () => say(`${short(failed[0].property.name)} fails ${failed[0].checks.find((c) => !c.pass)!.label.toLowerCase()}`))
+      later(2600, () => say(`${res.filter((r) => r.status === 'pass').length} of ${res.length} pass · ranked by fit`))
+    }
+    if (n === 3) {
+      setShown(res.map((r) => r.property.id))
+      setSelected(res[0].property.id)
+      setPlayKey((k) => k + 1)
+      say(`Planner · drafting rooms inside ${short(res[0].property.name)}`)
+      later(5200, () => say(`Fits ${PEOPLE} people · est. ${thousands(res[0].cost)}`))
+    }
+    if (n === 4) {
+      setShown(res.map((r) => r.property.id))
+      setSelected(res[0].property.id)
+      say('Your turn · drag the budget')
+    }
+    setStep(n)
   }
 
-  // Replan on a committed budget change. The evaluator reruns for real; the
-  // timing only paces what the judge sees.
-  function replan(next: number) {
-    if (phase !== 'done' || next === committed) {
-      if (phase !== 'running') setCommitted(next)
-      return
-    }
-    timers.current.forEach(clearTimeout)
-    timers.current = []
+  // A committed budget change reruns the evaluator for real. Timing only
+  // paces what the judge sees.
+  function commit(next = budget) {
+    if (step !== 4 || next === committed) return
+    clear()
     const before = results
     const after = evaluate({ ...REQUEST, budget: next }, PROPERTIES, NO_SHOCKS)
     const oldTop = before[0]
     const newTop = after[0]
-    const n = ++replanCount.current
     const broke = after.find((r) => r.status === 'fail' && before.find((b) => b.property.id === r.property.id)?.status === 'pass')
-    const fixed = after.find((r) => r.status === 'pass' && before.find((b) => b.property.id === r.property.id)?.status === 'fail')
-    const biggest = broke ? [...broke.selected].filter((x) => x.core).sort((a, b) => b.cost - a.cost)[0] : null
-
-    const add: Step[] = [
-      { key: `r${n}a`, agent: 'You', title: 'Budget changed', detail: `${thousands(committed)} to ${thousands(next)}.`, cites: ['U4'], state: 'pending', replan: true },
-      {
-        key: `r${n}b`,
-        agent: 'Feasibility',
-        title: 'Re-check hard rules',
-        detail: broke
-          ? `${broke.property.name}: core work ${thousands(broke.coreCost)} is over ${thousands(next)}.`
-          : fixed
-            ? `${fixed.property.name} fits again: core work ${thousands(fixed.coreCost)}.`
-            : 'No building changed pass or fail.',
-        cites: broke && biggest ? [biggest.ev, 'A3'] : ['A3'],
-        state: 'pending',
-        replan: true,
-      },
-      {
-        key: `r${n}c`,
-        agent: 'Planner',
-        title: newTop.property.id === oldTop.property.id ? 'Trim the plan' : 'Re-rank',
-        detail:
-          newTop.property.id === oldTop.property.id
-            ? `${newTop.property.name} still fits best. Work now about ${thousands(newTop.cost)}.`
-            : `${newTop.property.name} now fits best at about ${thousands(newTop.cost)}.`,
-        cites: [newTop.property.ev[0], 'A3'],
-        state: 'pending',
-        replan: true,
-      },
-    ]
-    setSteps((s) => [...s.map((x) => (x.agent === 'Planner' && x.state === 'done' ? { ...x, state: 'struck' as const } : x)), ...add])
-    const mark = (key: string, state: Step['state']) => setSteps((s) => s.map((x) => (x.key === key ? { ...x, state } : x)))
-    later(50, () => mark(add[0].key, 'done'))
-    later(150, () => mark(add[1].key, 'active'))
-    later(900, () => mark(add[1].key, 'done'))
-    later(1000, () => mark(add[2].key, 'active'))
-    later(1500, () => {
+    say(`Budget ${thousands(committed)} → ${thousands(next)} · re-checking rules`)
+    if (newTop.property.id !== oldTop.property.id) {
+      if (broke && broke.property.id === selected) setOver(true)
+      later(900, () => say(broke ? `${short(broke.property.name)} core work ${thousands(broke.coreCost)} is over ${thousands(next)}` : `${short(newTop.property.name)} now leads on budget left`))
+      later(2000, () => {
+        setCommitted(next)
+        setOver(false)
+        setSelected(newTop.property.id)
+        setPlayKey((k) => k + 1)
+        say(`Re-ranked · ${short(newTop.property.name)} first at ${thousands(newTop.cost)}`)
+        setChanged(
+          broke
+            ? `${short(newTop.property.name)} moves to #1 at about ${thousands(newTop.cost)}. ${short(broke.property.name)} needs ${thousands(broke.coreCost)} of core work.`
+            : `${short(newTop.property.name)} moves to #1 at about ${thousands(newTop.cost)}.`,
+        )
+      })
+    } else {
       setCommitted(next)
       setSelected(newTop.property.id)
-      setChanged(new Set(after.filter((r) => before.find((b) => b.property.id === r.property.id)?.status !== r.status).map((r) => r.property.id)))
-      if (newTop.property.id !== oldTop.property.id) {
-        setNote({
-          title: `${newTop.property.name} moves to first`,
-          body: broke && biggest
-            ? `${broke.property.name} no longer fits. Its core work is ${thousands(broke.coreCost)}, over your ${thousands(next)} budget. The biggest line is "${biggest.name}" at about ${thousands(biggest.cost)}.`
-            : `${oldTop.property.name} drops below it on budget left.`,
-          cites: broke && biggest ? ['U4', biggest.ev] : ['U4'],
-        })
-      } else {
-        setNote({
-          title: `${newTop.property.name} still fits best`,
-          body: `Selected work is now about ${thousands(newTop.cost)}. ${newTop.dropped.length ? `Dropped for now: ${newTop.dropped.map((d) => d.name.toLowerCase()).join(', ')}.` : 'Nothing dropped.'}`,
-          cites: ['U4', 'A3'],
-        })
-      }
-    })
-    later(1700, () => mark(add[2].key, 'done'))
+      later(500, () => say(`${short(newTop.property.name)} still first · work now ${thousands(newTop.cost)}`))
+      setChanged(
+        `${short(newTop.property.name)} still fits best at about ${thousands(newTop.cost)}.${newTop.dropped.length ? ` Dropped: ${newTop.dropped.map((d) => d.name.toLowerCase()).join(', ')}.` : ''}`,
+      )
+    }
   }
 
-  const commitBudget = () => replan(budget)
+  // Keyboard: arrows move through the journey.
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).tagName === 'INPUT' || drawer) return
+      if (e.key === 'ArrowRight' && !busy && step < STEPS.length - 1) goTo(step + 1)
+      if (e.key === 'ArrowLeft' && step > 0) goTo(step - 1)
+    }
+    window.addEventListener('keydown', on)
+    return () => window.removeEventListener('keydown', on)
+  })
 
-  // Demo shortcuts and fallback: ?demo=run plays the first run, ?demo=cut
-  // also cuts the budget to $90k once the run finishes.
+  // ?demo=auto (or run, cut) plays the whole journey hands free, budget cut included.
   const demo = useRef(new URLSearchParams(window.location.search).get('demo'))
-  const autoCut = useRef(false)
   useEffect(() => {
-    if (demo.current && phase === 'idle') run()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  useEffect(() => {
-    if (demo.current === 'cut' && phase === 'done' && !autoCut.current) {
-      autoCut.current = true
+    if (!demo.current) return
+    const wait = [900, 5200, 5600, 7200][step]
+    if (step < 4 && !busy) {
+      const t = window.setTimeout(() => goTo(step + 1), wait)
+      return () => clearTimeout(t)
+    }
+    if (step === 4 && committed === START_BUDGET) {
       const t = window.setTimeout(() => {
-        setBudget(90000)
-        replan(90000)
-      }, 4200)
+        setBudget(CUT_BUDGET)
+        commit(CUT_BUDGET)
+      }, 2200)
       return () => clearTimeout(t)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase])
+  }, [step, busy, committed])
+
+  const sheet = step >= 3
+  const panelW = sheet ? Math.min(900, Math.round(width * 0.58)) : Math.min(600, Math.round(width * 0.42))
+  const mapMode: MapMode = step === 0 ? 'idle' : step < 3 ? 'overview' : 'focus'
+  const narrow = width < 900
 
   return (
-    <MotionConfig reducedMotion={motionOn ? 'user' : 'always'}>
+    <MotionConfig reducedMotion="user">
       <EvidenceContext.Provider value={{ byId, open: openEvidence, focus }}>
-        <div className="app">
+        <div className={`app step-${STEPS[step].id}`}>
           <header className="topbar">
             <div className="brand">
+              <Logo />
               <span className="wordmark">CityMorph</span>
-              <span className="label brand-sub">Reuse planner · Houston</span>
             </div>
+            <Ticker tick={tick} />
             <div className="topbar-right">
-              <span className="tag" title="Sample records stand in until hackathon API keys arrive">
-                Sample records, not live CoStar
+              <span className="tag-sample" title="Sample records stand in until hackathon API keys arrive">
+                Sample data · not live CoStar
               </span>
               <button type="button" className="icon-btn" onClick={() => setDrawer(true)} aria-label="Open evidence trail">
-                <BookOpen size={16} strokeWidth={1.5} /> <span className="small">Evidence</span>
+                <BookOpen size={15} strokeWidth={1.7} />
+                <span>Evidence</span>
               </button>
-              <button type="button" className="icon-btn" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}>
-                {theme === 'light' ? <Moon size={16} strokeWidth={1.5} /> : <Sun size={16} strokeWidth={1.5} />}
-              </button>
-              <button type="button" className="icon-btn" onClick={() => setMotionOn(!motionOn)} aria-pressed={!motionOn} aria-label={motionOn ? 'Turn motion off' : 'Turn motion on'}>
-                {motionOn ? <Pause size={16} strokeWidth={1.5} /> : <Play size={16} strokeWidth={1.5} />}
-                <span className="small">Motion</span>
+              <button type="button" className="icon-btn is-square" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}>
+                {theme === 'light' ? <Moon size={15} strokeWidth={1.7} /> : <Sun size={15} strokeWidth={1.7} />}
               </button>
             </div>
           </header>
 
-          <main className="work">
-            <aside className="panel">
-              <section className="request" aria-label="Your request">
-                <span className="label">01 · What your neighborhood needs</span>
-                <p className="request-line">
-                  A Houston nonprofit needs a <mark>learning and training center</mark> for <mark>{PEOPLE} people</mark>, with <mark>a reception and two activity rooms</mark>,{' '}
-                  <mark>step free entry</mark> and{' '}
-                  <mark>
-                    <NumberFlow value={budget / 1000} prefix="$" suffix="k" />
-                  </mark>{' '}
-                  to adapt it.
-                </p>
-                {phase !== 'idle' && <Cites ids={['U1', 'U2', 'U3', 'U4']} />}
+          <main className="stage">
+            <MapStage
+              results={results}
+              shown={shown}
+              selected={selected}
+              onSelect={select}
+              theme={theme}
+              mode={mapMode}
+              padRight={narrow || step === 0 ? 0 : panelW + 48}
+              padBottom={step === 4 && !narrow ? 440 : 120}
+              showChecks={step >= 2}
+            />
+            <div className={`wash${step === 0 ? ' is-on' : ''}`} aria-hidden="true" />
 
-                <div className="budget">
-                  <div className="budget-head">
-                    <label htmlFor="budget" className="label">
-                      {phase === 'done' ? 'Try it · change the budget' : 'Adaptation budget'}
-                    </label>
-                    <span className="budget-value">
-                      <NumberFlow value={budget} prefix="$" format={{ maximumFractionDigits: 0 }} />
+            <AnimatePresence mode="wait">
+              {step === 0 && (
+                <motion.section
+                  key="need"
+                  className="need"
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16, filter: 'blur(4px)' }}
+                  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                  aria-label="What your neighborhood needs"
+                >
+                  <span className="mono-label need-kicker">Houston · what does the neighborhood need?</span>
+                  <h1 className="need-line">
+                    A <Blank i={0}>learning center</Blank> for <Blank i={1}>{PEOPLE} people</Blank>, with <Blank i={2}>2 activity rooms</Blank>, <Blank i={3}>step free</Blank> entry, under{' '}
+                    <Blank i={4}>{thousands(committed)}</Blank>.
+                  </h1>
+                  <div className="need-foot">
+                    <button type="button" className="btn-primary is-lg" onClick={() => goTo(1)}>
+                      Find buildings <ArrowRight size={17} strokeWidth={1.9} />
+                    </button>
+                    <span className="need-sources" aria-label="Sources CityMorph reads">
+                      {(['costar', 'matterport', 'vexcel'] as SourceKind[]).map((k) => {
+                        const Icon = SOURCE_ICON[k]
+                        return (
+                          <span key={k} className="need-source">
+                            <Icon size={14} strokeWidth={1.7} /> {SOURCE_LABEL[k]}
+                          </span>
+                        )
+                      })}
                     </span>
                   </div>
-                  <input
-                    id="budget"
-                    type="range"
-                    min={60000}
-                    max={200000}
-                    step={5000}
-                    value={budget}
-                    style={{ ['--fill' as string]: `${((budget - 60000) / 140000) * 100}%` }}
-                    onChange={(e) => setBudget(Number(e.target.value))}
-                    onPointerUp={commitBudget}
-                    onKeyUp={commitBudget}
-                    onTouchEnd={commitBudget}
-                    aria-valuetext={`$${budget.toLocaleString('en-US')}`}
+                </motion.section>
+              )}
+
+              {(step === 1 || step === 2) && (
+                <motion.aside
+                  key="list"
+                  className="side float"
+                  style={{ width: narrow ? undefined : panelW }}
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 40 }}
+                  transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <div className="side-head">
+                    <span className="big-n">
+                      <NumberFlow value={step === 1 ? shown.length : results.filter((r) => r.status === 'pass').length} />
+                    </span>
+                    <span className="side-title">{step === 1 ? 'buildings already standing' : `of ${results.length} pass every rule`}</span>
+                  </div>
+                  <Shortlist results={results} shown={shown} mode={step === 1 ? 'find' : 'check'} selected={selected} onSelect={select} />
+                  <p className="fig mono-label">{step === 1 ? 'Fig 02 · CoStar records + aerials' : 'Fig 03 · Rules run in code, not by the model'}</p>
+                </motion.aside>
+              )}
+
+              {sheet && (
+                <motion.aside
+                  key="sheet"
+                  className="sheet float"
+                  style={{ width: narrow ? undefined : panelW }}
+                  initial={{ opacity: 0, x: 60 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 60 }}
+                  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: step === 3 ? 0.9 : 0 }}
+                >
+                  <PlanSheet result={shownResult} playKey={`${playKey}`} over={over} />
+                </motion.aside>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {step === 4 && (
+                <motion.div key="replan" className="replan-wrap" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}>
+                  <ReplanPanel
+                    budget={budget}
+                    setBudget={setBudget}
+                    commit={() => commit()}
+                    shownProperty={shownResult.property}
+                    results={results}
+                    selected={selected}
+                    onSelect={select}
+                    changed={changed}
                   />
-                  <div className="budget-scale label" aria-hidden="true">
-                    <span>$60k</span>
-                    <span>$200k</span>
-                  </div>
-                </div>
-
-                {phase === 'idle' && (
-                  <button type="button" className="pill" onClick={run}>
-                    Find buildings
-                    <span className="chip" aria-hidden="true">
-                      <ArrowRight size={16} strokeWidth={1.6} />
-                    </span>
-                  </button>
-                )}
-                {phase !== 'idle' && (
-                  <button type="button" className="text-link" onClick={run}>
-                    Run again
-                  </button>
-                )}
-              </section>
-
-              <AnimatePresence>
-                {note && (
-                  <motion.section
-                    key={note.title + committed}
-                    className="note"
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                    aria-live="polite"
-                  >
-                    <span className="label">What changed</span>
-                    <p className="note-title">{note.title}</p>
-                    <p className="note-body">
-                      {note.body} <Cites ids={note.cites} />
-                    </p>
-                  </motion.section>
-                )}
-              </AnimatePresence>
-
-              {phase === 'done' && (
-                <section aria-label="Shortlist">
-                  <span className="label section-label">02 · Shortlist</span>
-                  <Results results={results.filter((r) => shown.includes(r.property.id))} selected={selected} onSelect={select} people={PEOPLE} changed={changed} />
-                </section>
+                </motion.div>
               )}
+            </AnimatePresence>
 
-              {phase !== 'idle' && (
-                <section aria-label="Agent run">
-                  <span className="label section-label">03 · What the agents did</span>
-                  <AgentRun steps={steps} />
-                </section>
-              )}
-            </aside>
-
-            <section className="stage" aria-label="Map and plan">
-              <div className="stage-tabs seg" role="tablist" aria-label="View">
-                <button type="button" role="tab" aria-selected={tab === 'map'} onClick={() => setTab('map')}>
-                  Map
-                </button>
-                <button type="button" role="tab" aria-selected={tab === 'plan'} disabled={!selectedResult} onClick={() => setTab('plan')}>
-                  Morph plan
-                </button>
-              </div>
-
-              <div className={`stage-layer${tab === 'map' ? ' is-on' : ''}`} aria-hidden={tab !== 'map'}>
-                <MapStage results={results} shown={shown} selected={selected} onSelect={select} theme={theme} overview={phase !== 'done'} />
-                {phase === 'idle' && (
-                  <div className="map-idle">
-                    <span className="label">Houston, Texas</span>
-                    <p className="heading-2">Find the building your neighborhood already has.</p>
-                    <p className="body map-idle-sub">CityMorph reads property records, interior scans and aerials, then drafts a plan to reuse what is already standing.</p>
-                  </div>
-                )}
-              </div>
-
-              <div className={`stage-layer plan-layer${tab === 'plan' ? ' is-on' : ''}`} aria-hidden={tab !== 'plan'}>
-                {selectedResult && tab === 'plan' && <PlanView result={selectedResult} />}
-              </div>
-            </section>
+            <Journey step={step} busy={busy} onGo={goTo} />
           </main>
 
-          <AnimatePresence>
-            {drawer && <EvidenceDrawer evidence={evidence} focus={focus} onClose={() => (setDrawer(false), setFocus(null))} results={results} />}
-          </AnimatePresence>
+          <AnimatePresence>{drawer && <EvidenceDrawer evidence={evidence} focus={focus} onClose={() => (setDrawer(false), setFocus(null))} results={results} />}</AnimatePresence>
         </div>
       </EvidenceContext.Provider>
     </MotionConfig>
   )
 }
 
-function PlanView({ result }: { result: Result }) {
+function Blank({ i, children }: { i: number; children: React.ReactNode }) {
   return (
-    <motion.div key={result.property.id} className="plan-view" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6, ease: [0.65, 0, 0.35, 1] }}>
-      <MorphPlan result={result} closed={[]} />
-      <div className="plan-side">
-        <dl className="spec">
-          <div className="spec-hd">
-            <span className="label">Spec · {result.property.id}</span>
-            <span className="spec-name">{result.property.name}</span>
-          </div>
-          {[
-            ['Use today', result.property.use, result.property.ev[0]],
-            ['Gross area', `${result.property.sqft.toLocaleString('en-US')} sq ft`, result.property.ev[0]],
-            ['Usable, est.', `${Math.round(result.usable).toLocaleString('en-US')} sq ft`, 'A2'],
-            ['Program needs', `${result.need.toLocaleString('en-US')} sq ft`, 'A1'],
-            ['Parking', result.property.parking, result.property.ev.find((e) => e.startsWith('V')) ?? 'A2'],
-          ].map(([k, v, c]) => (
-            <div key={k} className="spec-row">
-              <dt className="label">{k}</dt>
-              <i aria-hidden="true" />
-              <dd>
-                {v} <Cite id={c} />
-              </dd>
-            </div>
-          ))}
-        </dl>
-        {result.status === 'pass' && <TaskList result={result} />}
-        <AerialFrame lngLat={result.property.lngLat} name={result.property.name} />
+    <motion.span className="blank" initial={{ backgroundSize: '0% 100%' }} animate={{ backgroundSize: '100% 100%' }} transition={{ delay: 0.5 + i * 0.18, duration: 0.5, ease: [0.65, 0, 0.35, 1] }}>
+      {children}
+    </motion.span>
+  )
+}
+
+function Ticker({ tick }: { tick: Tick }) {
+  return (
+    <div className="ticker" aria-live="polite">
+      <span className="ticker-dot" aria-hidden="true" />
+      <span className="ticker-lines">
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.span key={tick.now} className="ticker-now" initial={{ y: 14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -14, opacity: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
+            {tick.now}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+    </div>
+  )
+}
+
+function Logo() {
+  return (
+    <svg className="logo" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2.5 20.5 7.4v9.2L12 21.5 3.5 16.6V7.4Z" className="logo-out" />
+      <path d="M12 12 20.5 7.4M12 12v9.5M12 12 3.5 7.4" className="logo-in" />
+      <path d="M12 2.5 20.5 7.4 12 12 3.5 7.4Z" className="logo-top" />
+    </svg>
+  )
+}
+
+function PlanSheet({ result, playKey, over }: { result: Result; playKey: string; over: boolean }) {
+  const p = result.property
+  const [t, setT] = useState(0)
+  const [scrub, setScrub] = useState<number | null>(null)
+  useEffect(() => setScrub(null), [playKey, p.id])
+  const door = p.entrances.find((e) => e.stepFree)
+  const lo = Math.round((result.cost * (1 - PLANNING.costSpread)) / 1000)
+  const hi = Math.round((result.cost * (1 + PLANNING.costSpread)) / 1000)
+  return (
+    <div className="plan">
+      <div className="plan-head">
+        <div>
+          <span className="plan-name">{short(p.name)}</span>
+          <span className="mono-label plan-sub">
+            {p.area} · {p.use} <Cites ids={[p.ev[0]]} />
+          </span>
+        </div>
+        <span className="mono-label tag-concept">Concept · areas est.</span>
       </div>
-    </motion.div>
+
+      <IsoPlan key={p.id} property={p} people={PEOPLE} playKey={playKey} over={over} onT={setT} scrub={scrub} />
+
+      <div className="scrub">
+        <span className={`mono-label${t < 0.5 ? ' is-on' : ''}`}>Today</span>
+        <input
+          className="range"
+          type="range"
+          min={0}
+          max={1}
+          step={0.001}
+          value={t}
+          style={{ ['--fill' as string]: `${t * 100}%` }}
+          onChange={(e) => setScrub(Number(e.target.value))}
+          aria-label="Morph from today to proposed"
+        />
+        <span className={`mono-label${t >= 0.5 ? ' is-on' : ''}`}>Proposed</span>
+      </div>
+
+      <dl className="stats">
+        <div>
+          <dt className="mono-label">People</dt>
+          <dd>
+            <NumberFlow value={PEOPLE} />
+            <Cites ids={['U1', 'A1']} />
+          </dd>
+        </div>
+        <div>
+          <dt className="mono-label">Usable</dt>
+          <dd>
+            <NumberFlow value={Math.round(result.usable / 10) * 10} suffix=" sq ft" />
+            <Cites ids={['A2']} />
+          </dd>
+        </div>
+        <div>
+          <dt className="mono-label">Est. work</dt>
+          <dd>
+            <NumberFlow value={result.cost / 1000} prefix="$" suffix="k" />
+            <span className="stat-range">
+              ${lo}k to ${hi}k
+            </span>
+            <Cites ids={['A3']} />
+          </dd>
+        </div>
+        <div>
+          <dt className="mono-label">Entry</dt>
+          <dd>
+            <span className="stat-text">{door ? 'Step free' : 'Steps'}</span>
+            <Cites ids={[door?.ev ?? 'U3']} />
+          </dd>
+        </div>
+      </dl>
+      <p className="fig mono-label">Fig 04 · Floor from interior scan · {AERIAL_CREDIT}</p>
+    </div>
   )
 }
 
@@ -434,38 +478,44 @@ function EvidenceDrawer({ evidence, focus, onClose, results }: { evidence: Evide
       >
         <div className="drawer-hd">
           <div>
-            <span className="label">Evidence trail · {evidence.length} claims · {verify} need a site visit</span>
-            <p className="heading-2">Where every claim comes from</p>
+            <span className="mono-label">
+              {evidence.length} claims · {verify} need a site visit
+            </span>
+            <p className="drawer-title">Where every number comes from</p>
           </div>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close evidence trail">
-            <X size={16} strokeWidth={1.5} />
+          <button type="button" className="icon-btn is-square" onClick={onClose} aria-label="Close evidence trail">
+            <X size={15} strokeWidth={1.7} />
           </button>
         </div>
-        {KIND_ORDER.map((kind) => (
-          <section key={kind} className="ev-group">
-            <span className="label ev-kind">{SOURCE_LABEL[kind]}</span>
-            <ul>
-              {evidence
-                .filter((e) => e.kind === kind)
-                .map((e) => (
-                  <li key={e.id} data-ev={e.id} className={`ev-row${focus === e.id ? ' is-focus' : ''}`}>
-                    <span className="label ev-id">{e.id}</span>
-                    <span className="ev-text">
-                      <span className="ev-claim">{e.claim}</span>
-                      <span className="ev-detail">
-                        {name(e.propertyId) ? `${name(e.propertyId)} · ` : ''}
-                        {e.detail}
+        {KIND_ORDER.map((kind) => {
+          const Icon = SOURCE_ICON[kind]
+          return (
+            <section key={kind} className="ev-group">
+              <span className="mono-label ev-kind">
+                <Icon size={13} strokeWidth={1.7} /> {SOURCE_LABEL[kind]}
+              </span>
+              <ul>
+                {evidence
+                  .filter((e) => e.kind === kind)
+                  .map((e) => (
+                    <li key={e.id} data-ev={e.id} className={`ev-row${focus === e.id ? ' is-focus' : ''}`}>
+                      <span className="ev-text">
+                        <span className="ev-claim">{e.claim}</span>
+                        <span className="ev-detail">
+                          {name(e.propertyId) ? `${name(e.propertyId)} · ` : ''}
+                          {e.detail}
+                        </span>
                       </span>
-                    </span>
-                    <span className="ev-meta">
-                      <span className="label">{e.confidence}</span>
-                      {e.verify && <span className="label ev-verify">Verify</span>}
-                    </span>
-                  </li>
-                ))}
-            </ul>
-          </section>
-        ))}
+                      <span className="ev-meta">
+                        <span className="mono-label">{e.confidence}</span>
+                        {e.verify && <span className="mono-label ev-verify">Verify</span>}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </section>
+          )
+        })}
       </motion.div>
     </>
   )
