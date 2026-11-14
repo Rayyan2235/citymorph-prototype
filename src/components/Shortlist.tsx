@@ -94,13 +94,22 @@ function RuleHead({ rows, rules }: { rows: Result[]; rules: CheckId[] }) {
 export function ScoreBars({ criteria, compact = false }: { criteria: Criterion[]; compact?: boolean }) {
   return (
     <ul className={`bars${compact ? ' is-compact' : ''}`}>
+      {!compact && (
+        <li className="bars-key">
+          Points earned out of what each item is worth. They add up to the fit score of {criteria.reduce((t, c) => t + c.points, 0)}.
+        </li>
+      )}
       {criteria.map((c) => (
         <li key={c.id}>
           <span className="bars-label">{c.label}</span>
-          <span className="bars-track" title={`${Math.round(c.value * 100)} of 100, weight ${Math.round(c.weight * 100)}%`}>
+          <span className="bars-track" title={`${c.points} of ${Math.round(c.weight * 100)} points`}>
             <motion.span className="bars-fill" initial={{ width: 0 }} animate={{ width: `${c.value * 100}%` }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }} />
           </span>
-          {!compact && <span className="mono-label bars-w">×{Math.round(c.weight * 100)}</span>}
+          {!compact && (
+            <span className="bars-w" title={`Earned ${c.points} of the ${Math.round(c.weight * 100)} points this item is worth`}>
+              <b>{c.points}</b>/{Math.round(c.weight * 100)}
+            </span>
+          )}
           {!compact && (
             <span className="bars-note">
               {c.note} <Cites ids={c.ev} />

@@ -1828,7 +1828,7 @@ p {
 }
 .bars li {
   display: grid;
-  grid-template-columns: 112px 1fr 34px;
+  grid-template-columns: 112px 1fr 44px;
   grid-template-areas: 'label track w' '. note note';
   align-items: center;
   column-gap: var(--s-2);
@@ -1859,7 +1859,19 @@ p {
 .bars-w {
   grid-area: w;
   text-align: right;
-  font-size: var(--t-10);
+  font-family: var(--font-mono);
+  font-size: var(--t-11);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+.bars-w b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.bars-key {
+  font-size: var(--t-11);
+  color: var(--ink-muted);
+  margin-bottom: 2px;
 }
 .bars-note {
   grid-area: note;
@@ -2567,4 +2579,7 @@ p {
   height: 8px;
   background: var(--accent-tint-2);
   border: 1px solid var(--accent);
+}
+.bars li.bars-key {
+  display: block;
 }

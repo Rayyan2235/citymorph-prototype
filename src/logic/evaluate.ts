@@ -34,6 +34,7 @@ export interface Criterion {
   label: string
   value: number // 0..1
   weight: number
+  points: number // value times weight, out of weight times 100
   note: string
   ev: string[]
 }
@@ -158,18 +159,6 @@ function evaluateOne(c: Candidate, req: Request): Omit<Result, 'conflicts'> {
       : m.park
         ? clamp(1 - m.park.m / 900)
         : 0
-  const W = SCORE_WEIGHTS
-  const criteria: Criterion[] = [
-    { id: 'space', label: 'Room to grow', value: clamp(((plan.achieved / req.capacity) * plan.squeeze - 0.9) / 0.6), weight: W.space, note: plan.squeeze < 1 ? `Rooms squeezed to ${Math.round(plan.squeeze * 100)}%` : `Room for ${plan.achieved}`, ev: ['P1', f.ratioEv] },
-    { id: 'access', label: 'Accessibility', value: door ? clamp(0.6 + (door.lip ? 0 : 0.2) + (plan.entrances.filter((e) => !e.isNew).length > 1 ? 0.2 : 0)) : 0, weight: W.access, note: door ? `${door.name}${plan.entrances.length > 1 ? `, ${plan.entrances.length} exits` : ''}` : 'Steps at every door', ev: [`${c.id}:scan`] },
-    { id: 'transit', label: 'Transit access', value: clamp(1 - (stopM - 150) / 1050 + (m.rail && m.rail.m <= 800 ? 0.15 : 0)), weight: W.transit, note: m.stop ? `${m.stop.kind === 'bus' ? 'Bus stop' : 'Rail station'} ${walkMin(m.stop.m)} min walk${m.rail && m.rail.m <= 800 ? `, rail ${walkMin(m.rail.m)} min` : ''}` : 'No stop mapped in OSM within 1.3 km', ev: [`${c.id}:osmwalk`] },
-    { id: 'outdoor', label: 'Outdoor space', value: outdoorValue, weight: W.outdoor, note: c.lotOutdoorSqft ? `${sqft(c.lotOutdoorSqft)} yard` : m.park ? `${m.park.name ?? 'Park'}, ${walkMin(m.park.m)} min walk` : 'None nearby', ev: [`${c.id}:aerial`, `${c.id}:osmwalk`] },
-    { id: 'cost', label: 'Budget left', value: clamp((req.budget - cost) / req.budget / 0.6), weight: W.cost, note: `${k(cost)} of ${k(req.budget)}`, ev: ['A3'] },
-    { id: 'zoning', label: 'Zoning', value: zone === 'allowed' ? 1 : zone === 'conditional' ? 0.45 : zone === 'not allowed' ? 0 : 0.8, weight: W.zoning, note: zone ? `${c.zone}: ${zone}` : 'No zoning ordinance; deed restrictions unchecked', ev: zone ? ['Z1'] : ['Z2'] },
-    { id: 'evidence', label: 'Ready and known', value: clamp(c.confidence * (c.vacant ? 1 : 0.7)), weight: W.evidence, note: c.vacancy, ev: [`${c.id}:listing`] },
-  ]
-  const score = pass ? Math.round(100 * criteria.reduce((t, x) => t + x.value * x.weight, 0)) : 0
-
   // Largest capacity this building holds with the same options.
   let maxCapacity = plan.achieved >= req.capacity ? req.capacity : 0
   const step = f.capacity.step
@@ -185,6 +174,21 @@ function evaluateOne(c: Candidate, req: Request): Omit<Result, 'conflicts'> {
         break
       }
   }
+
+  const W = SCORE_WEIGHTS
+  const raw: Omit<Criterion, 'points'>[] = [
+    // Spare capacity: full marks at 2.5 times what you asked for, zero when it only just fits.
+    { id: 'space', label: 'Room to grow', value: plan.squeeze < 1 ? 0 : clamp((maxCapacity / req.capacity - 1) / 1.5), weight: W.space, note: plan.squeeze < 1 ? `Rooms squeezed to ${Math.round(plan.squeeze * 100)}%` : maxCapacity > req.capacity ? `Fits up to ${maxCapacity}${maxCapacity >= f.capacity.max ? '+' : ''}; you asked for ${req.capacity}` : `Only just fits ${req.capacity}`, ev: ['P1', f.ratioEv] },
+    { id: 'access', label: 'Accessibility', value: door ? clamp(0.6 + (door.lip ? 0 : 0.2) + (plan.entrances.filter((e) => !e.isNew).length > 1 ? 0.2 : 0)) : 0, weight: W.access, note: door ? `${door.name}${plan.entrances.length > 1 ? `, ${plan.entrances.length} exits` : ''}` : 'Steps at every door', ev: [`${c.id}:scan`] },
+    { id: 'transit', label: 'Transit access', value: clamp(1 - (stopM - 150) / 1050 + (m.rail && m.rail.m <= 800 ? 0.15 : 0)), weight: W.transit, note: m.stop ? `${m.stop.kind === 'bus' ? 'Bus stop' : 'Rail station'} ${walkMin(m.stop.m)} min walk${m.rail && m.rail.m <= 800 ? `, rail ${walkMin(m.rail.m)} min` : ''}` : 'No stop mapped in OSM within 1.3 km', ev: [`${c.id}:osmwalk`] },
+    { id: 'outdoor', label: 'Outdoor space', value: outdoorValue, weight: W.outdoor, note: c.lotOutdoorSqft ? `${sqft(c.lotOutdoorSqft)} yard` : m.park ? `${m.park.name ?? 'Park'}, ${walkMin(m.park.m)} min walk` : 'None nearby', ev: [`${c.id}:aerial`, `${c.id}:osmwalk`] },
+    { id: 'cost', label: 'Budget left', value: clamp((req.budget - cost) / req.budget / 0.6), weight: W.cost, note: `${k(cost)} of ${k(req.budget)}`, ev: ['A3'] },
+    { id: 'zoning', label: 'Zoning', value: zone === 'allowed' ? 1 : zone === 'conditional' ? 0.45 : zone === 'not allowed' ? 0 : 0.8, weight: W.zoning, note: zone ? `${c.zone}: ${zone}` : 'No zoning ordinance; deed restrictions unchecked', ev: zone ? ['Z1'] : ['Z2'] },
+    { id: 'evidence', label: 'Ready and known', value: clamp(c.confidence * (c.vacant ? 1 : 0.7)), weight: W.evidence, note: c.vacancy, ev: [`${c.id}:listing`] },
+  ]
+  // Points per item are rounded first, so the card's points add up to the fit score exactly.
+  const criteria: Criterion[] = raw.map((x) => ({ ...x, points: Math.round(x.value * x.weight * 100) }))
+  const score = pass ? criteria.reduce((t, x) => t + x.points, 0) : 0
 
   return { property: c, status: pass ? 'pass' : 'fail', score, criteria, checks, plan, tasks, selected, dropped, cost, coreCost, maxCapacity, conditional }
 }
